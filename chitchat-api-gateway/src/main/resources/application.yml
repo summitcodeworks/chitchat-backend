@@ -1,0 +1,70 @@
+server:
+  port: 9101
+
+spring:
+  application:
+    name: chitchat-api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://chitchat-user-service
+          predicates:
+            - Path=/api/users/**
+        - id: messaging-service
+          uri: lb://chitchat-messaging-service
+          predicates:
+            - Path=/api/messages/**
+        - id: media-service
+          uri: lb://chitchat-media-service
+          predicates:
+            - Path=/api/media/**
+        - id: calls-service
+          uri: lb://chitchat-calls-service
+          predicates:
+            - Path=/api/calls/**
+        - id: notification-service
+          uri: lb://chitchat-notification-service
+          predicates:
+            - Path=/api/notifications/**
+        - id: status-service
+          uri: lb://chitchat-status-service
+          predicates:
+            - Path=/api/status/**
+        - id: admin-service
+          uri: lb://chitchat-admin-service
+          predicates:
+            - Path=/api/admin/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:9100/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG

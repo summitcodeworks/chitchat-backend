@@ -1,0 +1,50 @@
+server:
+  port: 9108
+
+spring:
+  application:
+    name: chitchat-admin-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chitchat
+    username: summitcodeworks
+    password: 8ivhaah8
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  data:
+    mongodb:
+      uri: mongodb://summitcodeworks:8ivhaah8@localhost:27017/chitchat
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: admin-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:9100/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.chitchat.admin: DEBUG
+    org.springframework.web: DEBUG

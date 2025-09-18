@@ -1,0 +1,53 @@
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# Maven
+target/
+dependency-reduced-pom.xml
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Spring Boot
+*.pid
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Application specific
+application-local.yml
+application-local.properties
+
+# Messaging service specific
+messaging-service.log
+message-backup/
+chat-logs/
+temp-messages/

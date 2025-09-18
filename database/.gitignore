@@ -1,0 +1,38 @@
+# Database specific files
+*.sql.backup
+*.sql.tmp
+*.sql.bak
+*.dump
+*.backup
+
+# Database logs
+*.log
+database.log
+init.log
+
+# Temporary database files
+temp/
+tmp/
+*.tmp
+
+# Database dumps
+*.sql.gz
+*.dump.gz
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Database connection files
+connection.properties
+db-config.local.properties
+
+# Migration files (keep structure, ignore data)
+# Uncomment if you want to ignore migration data files
+# migrations/data/
+# migrations/seed/
+
+# Database test files
+test-data/
+sample-data/
