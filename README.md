@@ -108,7 +108,7 @@ The application uses both PostgreSQL and MongoDB databases with automatic initia
 
 ### Database Credentials
 - **PostgreSQL**: `summitcodeworks` / `8ivhaah8` / `chitchat`
-- **MongoDB**: `summitcodeworks` / `8ivhaah8` / `chitchat`
+- **MongoDB**: `summitcodeworks` / `8ivhaah8` / `chirp`
 
 ## Features
 

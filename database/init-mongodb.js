@@ -1,10 +1,10 @@
 // ChitChat Backend MongoDB Database Initialization Script
-// Database: chitchat
+// Database: chirp
 // Username: summitcodeworks
 // Password: 8ivhaah8
 
-// Switch to chitchat database
-db = db.getSiblingDB('chitchat');
+// Switch to chirp database
+db = db.getSiblingDB('chirp');
 
 // Create collections with validation schemas
 

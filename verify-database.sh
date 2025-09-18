@@ -80,16 +80,16 @@ if docker exec chitchat-mongodb mongosh --eval "db.runCommand('ping')" > /dev/nu
     print_status "MongoDB connection successful"
     
     # Check collections
-    COLLECTIONS=$(docker exec chitchat-mongodb mongosh chitchat --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+    COLLECTIONS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
     print_status "Found $COLLECTIONS collections in MongoDB"
     
     # List all collections
     echo "MongoDB Collections:"
-    docker exec chitchat-mongodb mongosh chitchat --eval "db.getCollectionNames()" --quiet
+    docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames()" --quiet
     
     # Check sample data
-    SAMPLE_GROUPS=$(docker exec chitchat-mongodb mongosh chitchat --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
-    SAMPLE_STATUSES=$(docker exec chitchat-mongodb mongosh chitchat --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_GROUPS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_STATUSES=$(docker exec chitchat-mongodb mongosh chirp --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
     
     if [ "$SAMPLE_GROUPS" -gt 0 ]; then
         print_status "Sample group data found ($SAMPLE_GROUPS groups)"
@@ -113,9 +113,9 @@ docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT sch
 
 echo ""
 echo "MongoDB Indexes:"
-docker exec chitchat-mongodb mongosh chitchat --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
-docker exec chitchat-mongodb mongosh chitchat --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
-docker exec chitchat-mongodb mongosh chitchat --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
+docker exec chitchat-mongodb mongosh chirp --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
+docker exec chitchat-mongodb mongosh chirp --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
+docker exec chitchat-mongodb mongosh chirp --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
 
 print_header "Database Verification Complete!"
 

@@ -86,10 +86,10 @@ fi
 
 # Verify MongoDB collections
 print_status "Verifying MongoDB collections..."
-COLLECTIONS=$(docker exec chitchat-mongodb mongosh chitchat --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+COLLECTIONS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
 if [ "$COLLECTIONS" -gt 0 ]; then
     print_status "MongoDB collections created successfully! ($COLLECTIONS collections found)"
-    docker exec chitchat-mongodb mongosh chitchat --eval "db.getCollectionNames()"
+    docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames()"
 else
     print_warning "No collections found in MongoDB. The initialization script might not have run."
 fi
