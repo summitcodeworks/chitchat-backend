@@ -31,9 +31,75 @@ public class UserServiceImpl implements UserService {
     private final BlockRepository blockRepository;
     private final JwtService jwtService;
     private final FirebaseService firebaseService;
-    
+
     @Override
     @Transactional
+    public AuthResponse authenticate(AuthenticationRequest request) {
+        log.info("Authentication attempt for phone number: {}", request.getPhoneNumber());
+
+        // Verify OTP first
+        firebaseService.verifyOTP(request.getPhoneNumber(), request.getOtp());
+
+        // Check if user exists
+        User user = userRepository.findByPhoneNumber(request.getPhoneNumber()).orElse(null);
+
+        if (user != null) {
+            // User exists - perform login
+            log.info("Existing user found, performing login for phone: {}", request.getPhoneNumber());
+
+            // Update last seen and online status
+            user.setLastSeen(LocalDateTime.now());
+            user.setIsOnline(true);
+            userRepository.save(user);
+
+            // Generate JWT token
+            String token = jwtService.generateToken(user);
+
+            log.info("User logged in successfully with ID: {}", user.getId());
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .user(mapToUserResponse(user))
+                    .message("Login successful")
+                    .isNewUser(false)
+                    .build();
+        } else {
+            // User doesn't exist - perform registration
+            log.info("New user, performing registration for phone: {}", request.getPhoneNumber());
+
+            // For new users, name is required
+            if (request.getName() == null || request.getName().trim().isEmpty()) {
+                throw new ChitChatException("Name is required for new users", HttpStatus.BAD_REQUEST, "NAME_REQUIRED");
+            }
+
+            // Create new user
+            user = User.builder()
+                    .phoneNumber(request.getPhoneNumber())
+                    .name(request.getName().trim())
+                    .isActive(true)
+                    .isOnline(true)
+                    .lastSeen(LocalDateTime.now())
+                    .build();
+
+            user = userRepository.save(user);
+
+            // Generate JWT token
+            String token = jwtService.generateToken(user);
+
+            log.info("User registered successfully with ID: {}", user.getId());
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .user(mapToUserResponse(user))
+                    .message("Registration successful")
+                    .isNewUser(true)
+                    .build();
+        }
+    }
+
+    @Override
+    @Transactional
+    @Deprecated
     public AuthResponse registerUser(UserRegistrationRequest request) {
         log.info("Registering user with phone number: {}", request.getPhoneNumber());
         

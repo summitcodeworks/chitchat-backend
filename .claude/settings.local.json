@@ -20,7 +20,9 @@
       "Bash(cp:*)",
       "Bash(javac:*)",
       "Bash(java:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(chmod:*)",
+      "Bash(./run-dev.sh:*)"
     ],
     "deny": [],
     "ask": []

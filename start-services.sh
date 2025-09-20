@@ -1,12 +1,67 @@
 #!/bin/bash
 
-echo "Starting ChitChat Backend Services..."
+# ChitChat Backend Services Launcher
+# Supports both production and development modes with auto-reload
+
+# Default mode
+MODE="production"
+DEV_MODE=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dev|--development)
+            MODE="development"
+            DEV_MODE=true
+            shift
+            ;;
+        --prod|--production)
+            MODE="production"
+            DEV_MODE=false
+            shift
+            ;;
+        --help|-h)
+            echo "ChitChat Backend Services Launcher"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "OPTIONS:"
+            echo "  --dev, --development    Start services in development mode with auto-reload"
+            echo "  --prod, --production    Start services in production mode (default)"
+            echo "  --help, -h              Show this help message"
+            echo ""
+            echo "Development Mode Features:"
+            echo "  • Automatic restart on code changes"
+            echo "  • Enhanced logging for debugging"
+            echo "  • LiveReload for browser refresh"
+            echo "  • Debug ports enabled"
+            echo ""
+            echo "Examples:"
+            echo "  $0                      # Start in production mode"
+            echo "  $0 --dev               # Start in development mode with auto-reload"
+            echo "  $0 --production        # Explicitly start in production mode"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$DEV_MODE" = true ]; then
+    echo "🚀 Starting ChitChat Backend Services in DEVELOPMENT mode with auto-reload..."
+else
+    echo "Starting ChitChat Backend Services in PRODUCTION mode..."
+fi
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -26,6 +81,39 @@ print_header() {
     echo -e "${BLUE}[HEADER]${NC} $1"
 }
 
+# Function to start service with appropriate mode
+start_service() {
+    local service_name=$1
+    local port=$2
+    local color=$3
+
+    if [ "$DEV_MODE" = true ]; then
+        echo -e "${color}📦 Starting $service_name on port $port with auto-reload...${NC}"
+        cd "$service_name" || {
+            print_error "Failed to enter $service_name directory"
+            return 1
+        }
+        # Development mode with DevTools and enhanced logging
+        mvn spring-boot:run \
+            -Dspring-boot.run.profiles=dev \
+            -Dspring-boot.run.arguments="--server.port=$port" \
+            -Dspring-boot.run.jvmArguments="-Dspring.devtools.restart.enabled=true" &
+    else
+        echo -e "${color}📦 Starting $service_name on port $port...${NC}"
+        cd "$service_name" || {
+            print_error "Failed to enter $service_name directory"
+            return 1
+        }
+        # Production mode
+        mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=$port" &
+    fi
+
+    local pid=$!
+    echo -e "${GREEN}✅ $service_name started with PID: $pid${NC}"
+    cd ..
+    return 0
+}
+
 # Kill any existing processes on ports 9100-9108
 print_header "Cleaning up existing processes..."
 echo "Killing existing processes on ports 9100-9108..."
@@ -36,6 +124,13 @@ for port in 9100 9101 9102 9103 9104 9105 9106 9107 9108; do
         kill -9 $PID
     fi
 done
+
+# Also kill any existing Spring Boot processes
+if [ "$DEV_MODE" = true ]; then
+    print_status "Cleaning up existing development processes..."
+    pkill -f "spring-boot:run" || true
+    pkill -f "java.*chitchat" || true
+fi
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
@@ -87,71 +182,42 @@ fi
 
 # Start Eureka Server (Port 9100)
 print_header "Starting microservices..."
-print_status "Starting Eureka Server on port 9100..."
-cd chitchat-eureka-server
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9100" &
-EUREKA_PID=$!
-cd ..
+start_service "chitchat-eureka-server" 9100 "$BLUE"
 
 # Wait for Eureka to start
 print_status "Waiting for Eureka Server to start..."
 sleep 30
 
 # Start API Gateway (Port 9101)
-print_status "Starting API Gateway on port 9101..."
-cd chitchat-api-gateway
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9101" &
-GATEWAY_PID=$!
-cd ..
+start_service "chitchat-api-gateway" 9101 "$GREEN"
+sleep 5
 
 # Start User Service (Port 9102)
-print_status "Starting User Service on port 9102..."
-cd chitchat-user-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9102" &
-USER_PID=$!
-cd ..
+start_service "chitchat-user-service" 9102 "$YELLOW"
+sleep 3
 
 # Start Messaging Service (Port 9103)
-print_status "Starting Messaging Service on port 9103..."
-cd chitchat-messaging-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9103" &
-MESSAGING_PID=$!
-cd ..
+start_service "chitchat-messaging-service" 9103 "$RED"
+sleep 3
 
 # Start Media Service (Port 9104)
-print_status "Starting Media Service on port 9104..."
-cd chitchat-media-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9104" &
-MEDIA_PID=$!
-cd ..
+start_service "chitchat-media-service" 9104 "$PURPLE"
+sleep 3
 
 # Start Calls Service (Port 9105)
-print_status "Starting Calls Service on port 9105..."
-cd chitchat-calls-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9105" &
-CALLS_PID=$!
-cd ..
+start_service "chitchat-calls-service" 9105 "$BLUE"
+sleep 3
 
 # Start Notification Service (Port 9106)
-print_status "Starting Notification Service on port 9106..."
-cd chitchat-notification-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9106" &
-NOTIFICATION_PID=$!
-cd ..
+start_service "chitchat-notification-service" 9106 "$GREEN"
+sleep 3
 
 # Start Status Service (Port 9107)
-print_status "Starting Status Service on port 9107..."
-cd chitchat-status-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9107" &
-STATUS_PID=$!
-cd ..
+start_service "chitchat-status-service" 9107 "$YELLOW"
+sleep 3
 
 # Start Admin Service (Port 9108)
-print_status "Starting Admin Service on port 9108..."
-cd chitchat-admin-service
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9108" &
-ADMIN_PID=$!
-cd ..
+start_service "chitchat-admin-service" 9108 "$RED"
 
 print_header "All services started successfully!"
 echo ""
@@ -167,5 +233,31 @@ echo "Notification Service: http://localhost:9106"
 echo "Status Service: http://localhost:9107"
 echo "Admin Service: http://localhost:9108"
 echo ""
+
+if [ "$DEV_MODE" = true ]; then
+    echo -e "${PURPLE}🚀 Development Mode Features Active:${NC}"
+    echo "======================================="
+    echo "✅ Auto-reload: Code changes trigger automatic restart"
+    echo "✅ Enhanced logging: DEBUG level enabled for development"
+    echo "✅ LiveReload: Browser refresh on static resource changes"
+    echo "✅ Debug ports: Remote debugging available"
+    echo ""
+    echo -e "${YELLOW}💡 Development Tips:${NC}"
+    echo "• Make changes to Java files and watch services restart automatically"
+    echo "• Check logs for detailed DEBUG information"
+    echo "• Use browser LiveReload extension for automatic page refresh"
+    echo ""
+    echo -e "${BLUE}🔧 LiveReload Ports:${NC}"
+    echo "• User Service: 35729"
+    echo "• API Gateway: 35730"
+    echo "• Other Services: 35731-35737"
+    echo ""
+fi
+
 print_status "To stop all services, run: ./stop-services.sh"
-print_status "Process IDs saved for cleanup"
+
+if [ "$DEV_MODE" = true ]; then
+    echo -e "${GREEN}🎉 Development server ready! Start coding and enjoy auto-reload! 🎉${NC}"
+else
+    print_status "Process IDs saved for cleanup"
+fi

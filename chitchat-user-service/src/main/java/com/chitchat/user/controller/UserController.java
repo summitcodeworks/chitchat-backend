@@ -20,17 +20,27 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     
     private final UserService userService;
-    
+
+    @PostMapping("/authenticate")
+    public ResponseEntity<ApiResponse<AuthResponse>> authenticateUser(@Valid @RequestBody AuthenticationRequest request) {
+        log.info("Authentication request received for phone: {}", request.getPhoneNumber());
+        AuthResponse response = userService.authenticate(request);
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
+
+    // Legacy endpoints - kept for backward compatibility
+    @Deprecated
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> registerUser(@Valid @RequestBody UserRegistrationRequest request) {
-        log.info("User registration request received for phone: {}", request.getPhoneNumber());
+        log.info("Legacy user registration request received for phone: {}", request.getPhoneNumber());
         AuthResponse response = userService.registerUser(request);
         return ResponseEntity.ok(ApiResponse.success(response, "User registered successfully"));
     }
-    
+
+    @Deprecated
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> loginUser(@Valid @RequestBody UserLoginRequest request) {
-        log.info("User login request received for phone: {}", request.getPhoneNumber());
+        log.info("Legacy user login request received for phone: {}", request.getPhoneNumber());
         AuthResponse response = userService.loginUser(request);
         return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
     }

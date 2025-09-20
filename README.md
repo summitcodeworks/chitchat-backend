@@ -183,8 +183,14 @@ The application uses both PostgreSQL and MongoDB databases with automatic initia
 
 2. **Start all services (includes database setup)**
    ```bash
-   # This will automatically setup databases and start all services
+   # Production mode (default)
    ./start-services.sh
+
+   # Development mode with auto-reload (like nodemon)
+   ./start-services.sh --dev
+
+   # Show all available options
+   ./start-services.sh --help
    ```
 
 3. **Configure environment variables (optional)**

@@ -49,62 +49,32 @@ All API responses follow this structure:
 
 ## 1. User Service APIs (`/api/users`)
 
-### User Registration
+### WhatsApp-Style Authentication (Recommended)
 ```bash
-curl -X POST http://localhost:9101/api/users/register \
+curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
   -d '{
     "phoneNumber": "+1234567890",
-    "name": "John Doe",
-    "deviceInfo": "Android App"
+    "otp": "123456",
+    "name": "John Doe"
   }'
 ```
 
-**Required Fields:**
-- `phoneNumber`: String (E.164 format, e.g., +1234567890)
-- `name`: String (Full name)
-
-**Optional Fields:**
-- `deviceInfo`: String (Device information)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiJ9...",
-    "user": {
-      "id": 1,
-      "phoneNumber": "+1234567890",
-      "name": "John Doe",
-      "avatarUrl": null,
-      "about": null,
-      "lastSeen": null,
-      "isOnline": false,
-      "createdAt": "2025-09-20T13:51:22.606182338"
-    }
-  }
-}
-```
-
-### User Login
-```bash
-curl -X POST http://localhost:9101/api/users/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phoneNumber": "+1234567890",
-    "otp": "123456"
-  }'
-```
+**How it works:** Just like WhatsApp, this single endpoint handles both registration and login:
+- If the phone number exists in the database → **Login**
+- If the phone number doesn't exist → **Registration** (name required)
 
 **Required Fields:**
 - `phoneNumber`: String (E.164 format, e.g., +1234567890)
 - `otp`: String (One-Time Password - for testing use "123456")
 
-**Note:** This system uses OTP-based authentication via phone number, not traditional password authentication. For testing purposes, use OTP "123456".
+**Conditional Fields:**
+- `name`: String (Required only for new users during first-time registration)
 
-**Response:**
+**Optional Fields:**
+- `deviceInfo`: String (Device information)
+
+**Response for Existing User (Login):**
 ```json
 {
   "success": true,
@@ -119,10 +89,69 @@ curl -X POST http://localhost:9101/api/users/login \
       "about": null,
       "lastSeen": "2025-09-20T13:51:22.606182338",
       "isOnline": true
-    }
+    },
+    "isNewUser": false
   }
 }
 ```
+
+**Response for New User (Registration):**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "user": {
+      "id": 2,
+      "phoneNumber": "+1234567891",
+      "name": "Jane Smith",
+      "avatarUrl": null,
+      "about": null,
+      "lastSeen": "2025-09-20T14:01:30.123456789",
+      "isOnline": true,
+      "createdAt": "2025-09-20T14:01:30.123456789"
+    },
+    "isNewUser": true
+  }
+}
+```
+
+**Error Response (Name Required for New Users):**
+```json
+{
+  "success": false,
+  "message": "Name is required for new users",
+  "timestamp": "2025-09-20T14:01:30.123456789"
+}
+```
+
+---
+
+### Legacy Endpoints (Deprecated)
+
+#### User Registration (Deprecated - Use `/authenticate` instead)
+```bash
+curl -X POST http://localhost:9101/api/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "name": "John Doe",
+    "deviceInfo": "Android App"
+  }'
+```
+
+#### User Login (Deprecated - Use `/authenticate` instead)
+```bash
+curl -X POST http://localhost:9101/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "otp": "123456"
+  }'
+```
+
+**Note:** These legacy endpoints are deprecated. Use the new `/authenticate` endpoint for WhatsApp-style authentication.
 
 ### Get User Profile
 ```bash

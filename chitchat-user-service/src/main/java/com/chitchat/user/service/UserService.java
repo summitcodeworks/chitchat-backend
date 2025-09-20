@@ -8,9 +8,18 @@ import java.util.List;
  * Service interface for user management operations
  */
 public interface UserService {
-    
+
+    /**
+     * WhatsApp-style authentication - handles both registration and login
+     * If user exists, performs login; if not, creates new user
+     */
+    AuthResponse authenticate(AuthenticationRequest request);
+
+    // Legacy methods - kept for backward compatibility
+    @Deprecated
     AuthResponse registerUser(UserRegistrationRequest request);
-    
+
+    @Deprecated
     AuthResponse loginUser(UserLoginRequest request);
     
     UserResponse getUserProfile(Long userId);
