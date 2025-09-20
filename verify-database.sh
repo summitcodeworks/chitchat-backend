@@ -36,11 +36,12 @@ print_header "Checking Docker Containers..."
 print_status "Using remote PostgreSQL server: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432"
 
 # MongoDB is now local - check if it's running
-if lsof -i :27017 > /dev/null 2>&1; then
-    print_status "Local MongoDB is running on port 27017"
+if mongosh --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+    print_status "Local MongoDB is running and accessible"
 else
-    print_error "Local MongoDB is not running on port 27017"
-    echo "Start it with: brew services start mongodb-community"
+    print_error "Local MongoDB is not accessible"
+    echo "Check if MongoDB is running with: sudo systemctl status mongod"
+    echo "Start it with: sudo systemctl start mongod"
     exit 1
 fi
 

@@ -66,15 +66,17 @@ fi
 
 # Check MongoDB connection
 print_status "Testing MongoDB connection..."
-if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+if mongosh --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
     print_status "MongoDB is ready!"
 else
     print_warning "MongoDB might not be ready yet. Waiting a bit more..."
     sleep 10
-    if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+    if mongosh --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
         print_status "MongoDB is ready!"
     else
-        print_error "Failed to connect to MongoDB. Make sure MongoDB is running locally on port 27017"
+        print_error "Failed to connect to MongoDB. Make sure MongoDB is running locally"
+        echo "Check status with: sudo systemctl status mongod"
+        echo "Start with: sudo systemctl start mongod"
         exit 1
     fi
 fi
