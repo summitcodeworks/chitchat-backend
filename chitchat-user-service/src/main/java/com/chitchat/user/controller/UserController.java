@@ -3,6 +3,7 @@ package com.chitchat.user.controller;
 import com.chitchat.shared.dto.ApiResponse;
 import com.chitchat.user.dto.*;
 import com.chitchat.user.service.UserService;
+import com.chitchat.user.util.PasswordUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -105,7 +106,48 @@ public class UserController {
         UserResponse response = userService.getUserById(userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
-    
+
+    @PostMapping("/admin/password/verify")
+    public ResponseEntity<ApiResponse<PasswordUtil.PasswordTestResult>> verifyPassword(
+            @RequestHeader("Authorization") String token,
+            @RequestBody PasswordVerificationRequest request) {
+        log.info("Password verification request received for hash: {}",
+                request.getHashedPassword().substring(0, 20) + "...");
+
+        PasswordUtil.PasswordTestResult result;
+
+        if (request.getPlainPassword() != null && !request.getPlainPassword().isEmpty()) {
+            // Verify specific password
+            boolean matches = PasswordUtil.verifyPassword(request.getPlainPassword(), request.getHashedPassword());
+            result = new PasswordUtil.PasswordTestResult();
+            result.setHashedPassword(request.getHashedPassword());
+            result.setMatchFound(matches);
+            result.setMatchedPassword(matches ? request.getPlainPassword() : null);
+            result.setTotalTested(1);
+        } else {
+            // Test common passwords
+            result = PasswordUtil.testCommonPasswords(request.getHashedPassword());
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(result, "Password verification completed"));
+    }
+
+    @PostMapping("/admin/password/info")
+    public ResponseEntity<ApiResponse<PasswordUtil.BCryptInfo>> getPasswordInfo(
+            @RequestHeader("Authorization") String token,
+            @RequestBody PasswordInfoRequest request) {
+        log.info("Password info request received for hash: {}",
+                request.getHashedPassword().substring(0, 20) + "...");
+
+        if (!PasswordUtil.isBCryptHash(request.getHashedPassword())) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid BCrypt hash format"));
+        }
+
+        PasswordUtil.BCryptInfo info = PasswordUtil.getBCryptInfo(request.getHashedPassword());
+        return ResponseEntity.ok(ApiResponse.success(info, "Password info retrieved"));
+    }
+
     private Long extractUserIdFromToken(String token) {
         // Extract user ID from JWT token
         // This is a simplified implementation

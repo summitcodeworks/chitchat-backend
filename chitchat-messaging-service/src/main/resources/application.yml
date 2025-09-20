@@ -4,9 +4,12 @@ server:
 spring:
   application:
     name: chitchat-messaging-service
+  cloud:
+    compatibility-verifier:
+      enabled: false
   data:
     mongodb:
-      uri: mongodb://127.0.0.1:27017/chitchat
+      uri: mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat
   redis:
     host: localhost
     port: 6379

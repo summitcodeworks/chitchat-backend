@@ -35,13 +35,13 @@ print_header "Checking Docker Containers..."
 # PostgreSQL is now remote - no local container needed
 print_status "Using remote PostgreSQL server: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:5432"
 
-# MongoDB is now local - check if it's running
-if mongosh --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
-    print_status "Local MongoDB is running and accessible"
+# MongoDB is now remote - check if it's accessible
+if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+    print_status "Remote MongoDB is accessible"
 else
-    print_error "Local MongoDB is not accessible"
-    echo "Check if MongoDB is running with: sudo systemctl status mongod"
-    echo "Start it with: sudo systemctl start mongod"
+    print_error "Remote MongoDB is not accessible"
+    echo "Check connection to: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017"
+    echo "Username: summitcodeworks"
     exit 1
 fi
 
@@ -76,20 +76,20 @@ fi
 # Test MongoDB connection and collections
 print_header "Verifying MongoDB Database..."
 
-if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
     print_status "MongoDB connection successful"
     
     # Check collections
-    COLLECTIONS=$(mongosh chitchat --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+    COLLECTIONS=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
     print_status "Found $COLLECTIONS collections in MongoDB"
     
     # List all collections
     echo "MongoDB Collections:"
-    mongosh chitchat --eval "db.getCollectionNames()" --quiet
+    mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames()" --quiet
     
     # Check sample data
-    SAMPLE_GROUPS=$(mongosh chitchat --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
-    SAMPLE_STATUSES=$(mongosh chitchat --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_GROUPS=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_STATUSES=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
     
     if [ "$SAMPLE_GROUPS" -gt 0 ]; then
         print_status "Sample group data found ($SAMPLE_GROUPS groups)"
@@ -101,7 +101,8 @@ if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; the
     
 else
     print_error "Failed to connect to MongoDB"
-    echo "Make sure MongoDB is running locally on port 27017"
+    echo "Check connection to: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017"
+    echo "Username: summitcodeworks"
     exit 1
 fi
 
@@ -113,9 +114,9 @@ psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcode
 
 echo ""
 echo "MongoDB Indexes:"
-mongosh chitchat --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
-mongosh chitchat --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
-mongosh chitchat --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
+mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
+mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
+mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
 
 print_header "Database Verification Complete!"
 

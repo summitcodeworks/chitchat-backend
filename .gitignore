@@ -120,6 +120,7 @@ application-prod.properties
 
 # Firebase
 firebase-adminsdk-*.json
+firebase-service-account.json
 google-services.json
 GoogleService-Info.plist
 
@@ -215,3 +216,7 @@ uploads/
 media/
 files/
 backup/
+
+.claude/
+.cursor/
+./vscode

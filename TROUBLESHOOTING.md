@@ -120,7 +120,8 @@ docker-compose logs -f [service-name]
 - Password: `8ivhaah8`
 
 ### MongoDB
-- Default database: `chirp`
+- Default database: `chitchat`
+- Host: `ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:27017`
 - Username: `summitcodeworks`
 - Password: `8ivhaah8`
 

@@ -42,11 +42,11 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Shared Config -->
-        <dependency>
+        <!-- Shared Config - Temporarily removed due to Sleuth compatibility issues -->
+        <!-- <dependency>
             <groupId>com.chitchat</groupId>
             <artifactId>chitchat-shared-config</artifactId>
-        </dependency>
+        </dependency> -->
     </dependencies>
 
     <build>

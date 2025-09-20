@@ -8,7 +8,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * ChitChat Status Service Application
  * Handles ephemeral status stories and updates
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+    org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class,
+    org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class
+})
 @EnableScheduling
 public class ChitChatStatusServiceApplication {
 

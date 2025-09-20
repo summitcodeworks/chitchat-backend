@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: chitchat-media-service
+  cloud:
+    compatibility-verifier:
+      enabled: false
   datasource:
     url: jdbc:postgresql://ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:5432/chitchat
     username: summitcodeworks

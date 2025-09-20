@@ -4,8 +4,19 @@ server:
 spring:
   application:
     name: chitchat-api-gateway
+  main:
+    web-application-type: reactive
   cloud:
+    compatibility-verifier:
+      enabled: false
     gateway:
+      httpclient:
+        wiretap: false
+      httpserver:
+        wiretap: false
+      filter:
+        json-to-grpc:
+          enabled: false
       routes:
         - id: user-service
           uri: lb://chitchat-user-service
