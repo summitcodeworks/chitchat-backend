@@ -64,7 +64,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow all origins (for development - restrict in production)
+        // Allow all origin patterns (for development - restrict in production)
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
 
         // Allow common HTTP methods
@@ -78,8 +78,8 @@ public class SecurityConfig {
             "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"
         ));
 
-        // Allow credentials
-        configuration.setAllowCredentials(true);
+        // Disable credentials to allow wildcard origins
+        configuration.setAllowCredentials(false);
 
         // Set max age for preflight requests
         configuration.setMaxAge(3600L);
