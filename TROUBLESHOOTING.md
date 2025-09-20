@@ -115,7 +115,7 @@ docker-compose logs -f [service-name]
 
 ### PostgreSQL
 - Default database: `chitchat`
-- Host: `ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432`
+- Host: `ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:5432`
 - Username: `summitcodeworks`
 - Password: `8ivhaah8`
 

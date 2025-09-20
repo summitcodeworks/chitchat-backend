@@ -33,7 +33,7 @@ print_header() {
 print_header "Checking Docker Containers..."
 
 # PostgreSQL is now remote - no local container needed
-print_status "Using remote PostgreSQL server: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432"
+print_status "Using remote PostgreSQL server: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:5432"
 
 # MongoDB is now local - check if it's running
 if mongosh --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
@@ -48,19 +48,19 @@ fi
 # Test PostgreSQL connection and tables
 print_header "Verifying PostgreSQL Database..."
 
-if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+if psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
     print_status "PostgreSQL connection successful"
     
     # Check tables
-    TABLES=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+    TABLES=$(psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
     print_status "Found $TABLES tables in PostgreSQL"
     
     # List all tables
     echo "PostgreSQL Tables:"
-    psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt" | grep -E "^\s+\w+\s+\|\s+table"
+    psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt" | grep -E "^\s+\w+\s+\|\s+table"
     
     # Check admin user
-    ADMIN_COUNT=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
+    ADMIN_COUNT=$(psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
     if [ "$ADMIN_COUNT" -gt 0 ]; then
         print_status "Default admin user exists"
     else
@@ -69,7 +69,7 @@ if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitc
     
 else
     print_error "Failed to connect to PostgreSQL"
-    echo "Check your connection to: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432"
+    echo "Check your connection to: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com:5432"
     exit 1
 fi
 
@@ -109,7 +109,7 @@ fi
 print_header "Checking Database Indexes..."
 
 echo "PostgreSQL Indexes:"
-psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;" | grep -E "^\s+\w+\s+\|\s+\w+\s+\|\s+\w+"
+psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;" | grep -E "^\s+\w+\s+\|\s+\w+\s+\|\s+\w+"
 
 echo ""
 echo "MongoDB Indexes:"

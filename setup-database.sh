@@ -47,16 +47,16 @@ sleep 30
 
 # Check PostgreSQL connection
 print_status "Testing PostgreSQL connection..."
-if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+if psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
     print_status "PostgreSQL is ready!"
 else
     print_warning "PostgreSQL might not be ready yet. Waiting a bit more..."
     sleep 10
-    if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+    if psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
         print_status "PostgreSQL is ready!"
     else
         print_error "Failed to connect to PostgreSQL. Please check your connection to:"
-        echo "  Host: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com"
+        echo "  Host: ec2-13-233-106-55.ap-south-1.compute.amazonaws.com"
         echo "  Port: 5432"
         echo "  Database: chitchat"
         echo "  Username: summitcodeworks"
@@ -83,10 +83,10 @@ fi
 
 # Verify PostgreSQL tables
 print_status "Verifying PostgreSQL tables..."
-TABLES=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+TABLES=$(psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
 if [ "$TABLES" -gt 0 ]; then
     print_status "PostgreSQL tables created successfully! ($TABLES tables found)"
-    psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt"
+    psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt"
 else
     print_warning "No tables found in PostgreSQL. The initialization script might not have run."
 fi
@@ -103,7 +103,7 @@ fi
 
 # Check admin user
 print_status "Checking default admin user..."
-ADMIN_COUNT=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
+ADMIN_COUNT=$(psql -h ec2-13-233-106-55.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
 if [ "$ADMIN_COUNT" -gt 0 ]; then
     print_status "Default admin user created successfully!"
     print_warning "Default admin credentials: username='admin', password='admin123'"
