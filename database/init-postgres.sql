@@ -3,8 +3,8 @@
 -- Username: summitcodeworks
 -- Password: 8ivhaah8
 
--- Create database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS chitchat;
+-- Note: Database is already created by Docker environment variables
+-- We just need to create tables and data
 
 -- Use the chitchat database
 \c chitchat;

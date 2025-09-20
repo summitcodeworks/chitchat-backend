@@ -107,8 +107,8 @@ The application uses both PostgreSQL and MongoDB databases with automatic initia
 - **statuses** - Ephemeral status updates and stories
 
 ### Database Credentials
-- **PostgreSQL**: `summitcodeworks` / `8ivhaah8` / `chitchat`
-- **MongoDB**: `summitcodeworks` / `8ivhaah8` / `chirp`
+- **PostgreSQL**: `summitcodeworks` / `8ivhaah8` / `chitchat` (Remote: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432)
+- **MongoDB**: `summitcodeworks` / `8ivhaah8` / `chirp` (Local: localhost:27017)
 
 ## Features
 
