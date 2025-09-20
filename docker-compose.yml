@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # Databases
-  # PostgreSQL removed - using remote server at ec2-13-127-179-199.ap-south-1.compute.amazonaws.com:5432
+  # PostgreSQL removed - using remote server at ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:5432
 
   # MongoDB removed - using local MongoDB installation
 

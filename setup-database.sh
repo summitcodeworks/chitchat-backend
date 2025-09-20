@@ -47,16 +47,16 @@ sleep 30
 
 # Check PostgreSQL connection
 print_status "Testing PostgreSQL connection..."
-if psql -h ec2-13-127-179-199.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+if psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
     print_status "PostgreSQL is ready!"
 else
     print_warning "PostgreSQL might not be ready yet. Waiting a bit more..."
     sleep 10
-    if psql -h ec2-13-127-179-199.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+    if psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
         print_status "PostgreSQL is ready!"
     else
         print_error "Failed to connect to PostgreSQL. Please check your connection to:"
-        echo "  Host: ec2-13-127-179-199.ap-south-1.compute.amazonaws.com"
+        echo "  Host: ec2-65-1-185-194.ap-south-1.compute.amazonaws.com"
         echo "  Port: 5432"
         echo "  Database: chitchat"
         echo "  Username: summitcodeworks"
@@ -66,16 +66,16 @@ fi
 
 # Check MongoDB connection
 print_status "Testing MongoDB connection..."
-if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-127-179-199.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
     print_status "MongoDB is ready!"
 else
     print_warning "MongoDB might not be ready yet. Waiting a bit more..."
     sleep 10
-    if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-127-179-199.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
+    if mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
         print_status "MongoDB is ready!"
     else
         print_error "Failed to connect to MongoDB. Check connection details and network access"
-        echo "MongoDB Host: ec2-13-127-179-199.ap-south-1.compute.amazonaws.com"
+        echo "MongoDB Host: ec2-65-1-185-194.ap-south-1.compute.amazonaws.com"
         echo "MongoDB Port: 27017"
         echo "Username: summitcodeworks"
         exit 1
@@ -84,27 +84,27 @@ fi
 
 # Verify PostgreSQL tables
 print_status "Verifying PostgreSQL tables..."
-TABLES=$(psql -h ec2-13-127-179-199.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+TABLES=$(psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
 if [ "$TABLES" -gt 0 ]; then
     print_status "PostgreSQL tables created successfully! ($TABLES tables found)"
-    psql -h ec2-13-127-179-199.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt"
+    psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt"
 else
     print_warning "No tables found in PostgreSQL. The initialization script might not have run."
 fi
 
 # Verify MongoDB collections
 print_status "Verifying MongoDB collections..."
-COLLECTIONS=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-127-179-199.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+COLLECTIONS=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
 if [ "$COLLECTIONS" -gt 0 ]; then
     print_status "MongoDB collections created successfully! ($COLLECTIONS collections found)"
-    mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-13-127-179-199.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames()"
+    mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames()"
 else
     print_warning "No collections found in MongoDB. The initialization script might not have run."
 fi
 
 # Check admin user
 print_status "Checking default admin user..."
-ADMIN_COUNT=$(psql -h ec2-13-127-179-199.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
+ADMIN_COUNT=$(psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
 if [ "$ADMIN_COUNT" -gt 0 ]; then
     print_status "Default admin user created successfully!"
     print_warning "Default admin credentials: username='admin', password='admin123'"
@@ -125,7 +125,7 @@ echo "  Username: summitcodeworks"
 echo "  Password: 8ivhaah8"
 echo ""
 echo "MongoDB:"
-echo "  Host: ec2-13-127-179-199.ap-south-1.compute.amazonaws.com"
+echo "  Host: ec2-65-1-185-194.ap-south-1.compute.amazonaws.com"
 echo "  Port: 27017"
 echo "  Database: chitchat"
 echo "  Username: summitcodeworks"
