@@ -108,7 +108,7 @@ The application uses both PostgreSQL and MongoDB databases with automatic initia
 
 ### Database Credentials
 - **PostgreSQL**: `summitcodeworks` / `8ivhaah8` / `chitchat` (Remote: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432)
-- **MongoDB**: `summitcodeworks` / `8ivhaah8` / `chirp` (Local: localhost:27017)
+- **MongoDB**: `chitchat` (Local: localhost:27017, no auth required)
 
 ## Features
 

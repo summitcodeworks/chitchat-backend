@@ -35,8 +35,8 @@ fi
 
 print_status "Starting database containers..."
 
-# Start PostgreSQL and MongoDB containers
-docker-compose up -d postgres mongodb
+# Using local MongoDB installation (PostgreSQL is remote)
+print_status "Using local MongoDB installation"
 
 # Wait for databases to be ready
 print_status "Waiting for databases to be ready..."
@@ -60,16 +60,15 @@ fi
 
 # Check MongoDB connection
 print_status "Testing MongoDB connection..."
-if docker exec chitchat-mongodb mongosh --eval "db.runCommand('ping')" > /dev/null 2>&1; then
+if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
     print_status "MongoDB is ready!"
 else
     print_warning "MongoDB might not be ready yet. Waiting a bit more..."
     sleep 10
-    if docker exec chitchat-mongodb mongosh --eval "db.runCommand('ping')" > /dev/null 2>&1; then
+    if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
         print_status "MongoDB is ready!"
     else
-        print_error "Failed to connect to MongoDB. Please check the logs:"
-        docker logs chitchat-mongodb
+        print_error "Failed to connect to MongoDB. Make sure MongoDB is running locally on port 27017"
         exit 1
     fi
 fi
@@ -86,10 +85,10 @@ fi
 
 # Verify MongoDB collections
 print_status "Verifying MongoDB collections..."
-COLLECTIONS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+COLLECTIONS=$(mongosh chitchat --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
 if [ "$COLLECTIONS" -gt 0 ]; then
     print_status "MongoDB collections created successfully! ($COLLECTIONS collections found)"
-    docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames()"
+    mongosh chitchat --eval "db.getCollectionNames()"
 else
     print_warning "No collections found in MongoDB. The initialization script might not have run."
 fi
@@ -120,8 +119,8 @@ echo "MongoDB:"
 echo "  Host: localhost"
 echo "  Port: 27017"
 echo "  Database: chitchat"
-echo "  Username: summitcodeworks"
-echo "  Password: 8ivhaah8"
+echo "  Username: (local installation - no auth)"
+echo "  Password: (local installation - no auth)"
 echo ""
 echo "You can now start the application services using:"
 echo "  ./start-services.sh"

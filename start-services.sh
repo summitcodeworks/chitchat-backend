@@ -45,7 +45,7 @@ fi
 
 # Start infrastructure services
 print_header "Starting infrastructure services..."
-docker-compose up -d postgres mongodb redis kafka zookeeper
+docker-compose up -d redis kafka zookeeper
 
 # Wait for infrastructure to be ready
 print_status "Waiting for infrastructure to be ready..."

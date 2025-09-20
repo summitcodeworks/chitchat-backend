@@ -2,35 +2,9 @@ version: '3.8'
 
 services:
   # Databases
-  postgres:
-    image: postgres:16
-    container_name: chitchat-postgres
-    environment:
-      POSTGRES_DB: chitchat
-      POSTGRES_USER: summitcodeworks
-      POSTGRES_PASSWORD: 8ivhaah8
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
-    networks:
-      - chitchat-network
+  # PostgreSQL removed - using remote server at ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432
 
-  mongodb:
-    image: mongo:7
-    container_name: chitchat-mongodb
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: summitcodeworks
-      MONGO_INITDB_ROOT_PASSWORD: 8ivhaah8
-      MONGO_INITDB_DATABASE: chirp
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-      - ./database/init-mongodb.js:/docker-entrypoint-initdb.d/init-mongodb.js
-    networks:
-      - chitchat-network
+  # MongoDB removed - using local MongoDB installation
 
   redis:
     image: redis:7-alpine
@@ -50,6 +24,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
       - "9092:9092"
     depends_on:
@@ -100,7 +75,6 @@ services:
       - "8081:8081"
     depends_on:
       - eureka-server
-      - postgres
       - redis
       - kafka
     networks:
@@ -115,7 +89,6 @@ services:
       - "8082:8082"
     depends_on:
       - eureka-server
-      - mongodb
       - redis
       - kafka
     networks:
@@ -130,7 +103,6 @@ services:
       - "8083:8083"
     depends_on:
       - eureka-server
-      - postgres
     networks:
       - chitchat-network
 
@@ -143,7 +115,6 @@ services:
       - "8084:8084"
     depends_on:
       - eureka-server
-      - postgres
       - redis
       - kafka
     networks:
@@ -158,7 +129,6 @@ services:
       - "8085:8085"
     depends_on:
       - eureka-server
-      - postgres
       - kafka
     networks:
       - chitchat-network
@@ -172,7 +142,6 @@ services:
       - "8086:8086"
     depends_on:
       - eureka-server
-      - mongodb
       - redis
       - kafka
     networks:
@@ -187,15 +156,13 @@ services:
       - "8087:8087"
     depends_on:
       - eureka-server
-      - postgres
-      - mongodb
       - kafka
     networks:
       - chitchat-network
 
 volumes:
-  postgres_data:
-  mongodb_data:
+  # postgres_data: removed - using remote PostgreSQL
+  # mongodb_data: removed - using local MongoDB
   redis_data:
 
 networks:

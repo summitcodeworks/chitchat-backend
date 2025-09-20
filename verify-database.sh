@@ -29,19 +29,15 @@ print_header() {
 # Check if Docker containers are running
 print_header "Checking Docker Containers..."
 
-if docker ps | grep -q "chitchat-postgres"; then
-    print_status "PostgreSQL container is running"
-else
-    print_error "PostgreSQL container is not running"
-    echo "Start it with: docker-compose up -d postgres"
-    exit 1
-fi
+# PostgreSQL is now remote - no local container needed
+print_status "Using remote PostgreSQL server: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432"
 
-if docker ps | grep -q "chitchat-mongodb"; then
-    print_status "MongoDB container is running"
+# MongoDB is now local - check if it's running
+if lsof -i :27017 > /dev/null 2>&1; then
+    print_status "Local MongoDB is running on port 27017"
 else
-    print_error "MongoDB container is not running"
-    echo "Start it with: docker-compose up -d mongodb"
+    print_error "Local MongoDB is not running on port 27017"
+    echo "Start it with: brew services start mongodb-community"
     exit 1
 fi
 
@@ -76,20 +72,20 @@ fi
 # Test MongoDB connection and collections
 print_header "Verifying MongoDB Database..."
 
-if docker exec chitchat-mongodb mongosh --eval "db.runCommand('ping')" > /dev/null 2>&1; then
+if mongosh chitchat --eval "db.runCommand('ping')" --quiet > /dev/null 2>&1; then
     print_status "MongoDB connection successful"
     
     # Check collections
-    COLLECTIONS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
+    COLLECTIONS=$(mongosh chitchat --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
     print_status "Found $COLLECTIONS collections in MongoDB"
     
     # List all collections
     echo "MongoDB Collections:"
-    docker exec chitchat-mongodb mongosh chirp --eval "db.getCollectionNames()" --quiet
+    mongosh chitchat --eval "db.getCollectionNames()" --quiet
     
     # Check sample data
-    SAMPLE_GROUPS=$(docker exec chitchat-mongodb mongosh chirp --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
-    SAMPLE_STATUSES=$(docker exec chitchat-mongodb mongosh chirp --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_GROUPS=$(mongosh chitchat --eval "db.groups.countDocuments()" --quiet | tr -d ' ')
+    SAMPLE_STATUSES=$(mongosh chitchat --eval "db.statuses.countDocuments()" --quiet | tr -d ' ')
     
     if [ "$SAMPLE_GROUPS" -gt 0 ]; then
         print_status "Sample group data found ($SAMPLE_GROUPS groups)"
@@ -101,7 +97,7 @@ if docker exec chitchat-mongodb mongosh --eval "db.runCommand('ping')" > /dev/nu
     
 else
     print_error "Failed to connect to MongoDB"
-    echo "Check logs with: docker logs chitchat-mongodb"
+    echo "Make sure MongoDB is running locally on port 27017"
     exit 1
 fi
 
@@ -113,9 +109,9 @@ docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT sch
 
 echo ""
 echo "MongoDB Indexes:"
-docker exec chitchat-mongodb mongosh chirp --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
-docker exec chitchat-mongodb mongosh chirp --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
-docker exec chitchat-mongodb mongosh chirp --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
+mongosh chitchat --eval "db.messages.getIndexes().forEach(function(index) { print('messages.' + index.name); });" --quiet
+mongosh chitchat --eval "db.groups.getIndexes().forEach(function(index) { print('groups.' + index.name); });" --quiet
+mongosh chitchat --eval "db.statuses.getIndexes().forEach(function(index) { print('statuses.' + index.name); });" --quiet
 
 print_header "Database Verification Complete!"
 
