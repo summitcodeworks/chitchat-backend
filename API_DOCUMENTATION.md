@@ -49,66 +49,57 @@ All API responses follow this structure:
 
 ## 1. User Service APIs (`/api/users`)
 
-### Send OTP (Step 1)
-```bash
-curl -X POST http://localhost:9101/api/users/send-otp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phoneNumber": "+1234567890"
-  }'
-```
-
-**Required Fields:**
-- `phoneNumber`: String (E.164 format, e.g., +1234567890)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "OTP sent successfully",
-  "data": {
-    "phoneNumber": "+1234567890",
-    "message": "OTP sent successfully",
-    "otpSent": true,
-    "testOtp": "123456"
-  }
-}
-```
-
-**Note:** In development mode, the response includes `testOtp` field with the test OTP "123456". In production, this field would not be included and real SMS would be sent.
-
----
-
-### WhatsApp-Style Authentication (Step 2)
+### Firebase Token Authentication
 ```bash
 curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
   -d '{
-    "phoneNumber": "+1234567890",
-    "otp": "123456",
-    "name": "John Doe"
+    "idToken": "firebase_id_token_here",
+    "name": "John Doe",
+    "deviceInfo": "Android App"
   }'
 ```
 
-**How it works:** Just like WhatsApp, this single endpoint handles both registration and login:
+**How it works:** This endpoint handles both registration and login using Firebase authentication:
+- Frontend authenticates with Firebase directly (handles OTP internally)
+- Frontend sends Firebase ID token to backend
+- Backend verifies token and extracts user information
 - If the phone number exists in the database → **Login**
-- If the phone number doesn't exist → **Registration** (name required)
+- If the phone number doesn't exist → **Registration** (name optional)
 
 **Required Fields:**
-- `phoneNumber`: String (E.164 format, e.g., +1234567890)
-- `otp`: String (One-Time Password - for testing use "123456")
-
-**Conditional Fields:**
-- `name`: String (Required only for new users during first-time registration)
+- `idToken`: String (Firebase ID token from frontend authentication)
 
 **Optional Fields:**
-- `deviceInfo`: String (Device information)
+- `name`: String (User's display name - used if not available in Firebase)
+- `deviceInfo`: String (Device information for analytics)
+
+**Frontend Integration:**
+```javascript
+// Example for web/mobile
+import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
+
+// 1. Authenticate with Firebase
+const userCredential = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+const idToken = await userCredential.user.getIdToken();
+
+// 2. Send token to backend
+const response = await fetch('/api/users/authenticate', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    idToken: idToken,
+    name: "User Name", // optional
+    deviceInfo: "device info" // optional
+  })
+});
+```
 
 **Response for Existing User (Login):**
 ```json
 {
   "success": true,
-  "message": "Login successful",
+  "message": "Firebase authentication successful",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
     "user": {
@@ -129,7 +120,7 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 ```json
 {
   "success": true,
-  "message": "Registration successful",
+  "message": "Firebase authentication successful",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
     "user": {
@@ -147,11 +138,11 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 }
 ```
 
-**Error Response (Name Required for New Users):**
+**Error Response (Invalid Firebase Token):**
 ```json
 {
   "success": false,
-  "message": "Name is required for new users",
+  "message": "Firebase authentication failed",
   "timestamp": "2025-09-20T14:01:30.123456789"
 }
 ```
@@ -160,7 +151,7 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 
 ### Legacy Endpoints (Deprecated)
 
-#### User Registration (Deprecated - Use `/authenticate` instead)
+#### User Registration (Deprecated - Use Firebase `/authenticate` instead)
 ```bash
 curl -X POST http://localhost:9101/api/users/register \
   -H "Content-Type: application/json" \
@@ -171,7 +162,7 @@ curl -X POST http://localhost:9101/api/users/register \
   }'
 ```
 
-#### User Login (Deprecated - Use `/authenticate` instead)
+#### User Login (Deprecated - Use Firebase `/authenticate` instead)
 ```bash
 curl -X POST http://localhost:9101/api/users/login \
   -H "Content-Type: application/json" \
@@ -181,7 +172,7 @@ curl -X POST http://localhost:9101/api/users/login \
   }'
 ```
 
-**Note:** These legacy endpoints are deprecated. Use the new `/authenticate` endpoint for WhatsApp-style authentication.
+**Note:** These legacy endpoints are deprecated. Use the new Firebase token-based `/authenticate` endpoint.
 
 ---
 
@@ -189,32 +180,21 @@ curl -X POST http://localhost:9101/api/users/login \
 
 ### Step-by-Step Example
 
-#### 1. Send OTP to Phone Number
-```bash
-curl -X POST http://localhost:9101/api/users/send-otp \
-  -H "Content-Type: application/json" \
-  -d '{"phoneNumber": "+1234567890"}'
+#### 1. Frontend: Authenticate with Firebase
+```javascript
+// Frontend handles OTP verification with Firebase
+import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
+
+const userCredential = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+const idToken = await userCredential.user.getIdToken();
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "phoneNumber": "+1234567890",
-    "otpSent": true,
-    "testOtp": "123456"
-  }
-}
-```
-
-#### 2. Authenticate with OTP (Existing User)
+#### 2. Backend: Authenticate with Firebase Token (Existing User)
 ```bash
 curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
   -d '{
-    "phoneNumber": "+1234567890",
-    "otp": "123456"
+    "idToken": "firebase_id_token_here"
   }'
 ```
 
@@ -222,7 +202,7 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 ```json
 {
   "success": true,
-  "message": "Login successful",
+  "message": "Firebase authentication successful",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
     "user": { /* user details */ },
@@ -231,13 +211,12 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 }
 ```
 
-#### 3. Authenticate with OTP (New User)
+#### 3. Backend: Authenticate with Firebase Token (New User)
 ```bash
 curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
   -d '{
-    "phoneNumber": "+1234567891",
-    "otp": "123456",
+    "idToken": "firebase_id_token_here",
     "name": "Jane Smith"
   }'
 ```
@@ -246,7 +225,7 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 ```json
 {
   "success": true,
-  "message": "Registration successful",
+  "message": "Firebase authentication successful",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
     "user": { /* user details */ },
@@ -257,39 +236,115 @@ curl -X POST http://localhost:9101/api/users/authenticate \
 
 ### Error Responses
 
-#### Invalid Phone Number
+#### Invalid Firebase Token
 ```json
 {
   "success": false,
-  "message": "Invalid phone number format",
+  "message": "Firebase authentication failed",
+  "status": 401
+}
+```
+
+#### Phone Number Not Found in Token
+```json
+{
+  "success": false,
+  "message": "Phone number not found in Firebase token",
   "status": 400
 }
 ```
 
-#### OTP Send Failed
+#### Token Verification Failed
 ```json
 {
   "success": false,
-  "message": "Failed to send OTP",
-  "status": 500
+  "message": "Token verification failed",
+  "status": 401
 }
 ```
 
-#### Invalid OTP
-```json
-{
-  "success": false,
-  "message": "Invalid OTP",
-  "status": 400
+### Firebase Integration Examples
+
+#### Android (Kotlin)
+```kotlin
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.PhoneAuthProvider
+
+class AuthManager {
+    private val auth = FirebaseAuth.getInstance()
+    
+    suspend fun authenticateWithPhone(phoneNumber: String): String {
+        // Firebase handles OTP verification
+        val result = auth.signInWithPhoneNumber(phoneNumber).await()
+        return result.user?.getIdToken(false)?.await()?.token ?: throw Exception("Auth failed")
+    }
+    
+    fun authenticateWithBackend(idToken: String) {
+        // Send token to your backend
+        val request = FirebaseAuthRequest(
+            idToken = idToken,
+            name = "User Name", // optional
+            deviceInfo = "Android"
+        )
+        // Make API call to /api/users/authenticate
+    }
 }
 ```
 
-#### Name Required for New Users
-```json
-{
-  "success": false,
-  "message": "Name is required for new users",
-  "status": 400
+#### iOS (Swift)
+```swift
+import FirebaseAuth
+
+class AuthManager: ObservableObject {
+    private let auth = Auth.auth()
+    
+    func authenticateWithPhone(phoneNumber: String) async throws -> String {
+        // Firebase handles OTP verification
+        let result = try await auth.signIn(withPhoneNumber: phoneNumber)
+        return try await result.user.getIDToken()
+    }
+    
+    func authenticateWithBackend(idToken: String) async throws {
+        // Send token to your backend
+        let request = FirebaseAuthRequest(
+            idToken: idToken,
+            name: "User Name", // optional
+            deviceInfo: "iOS"
+        )
+        // Make API call to /api/users/authenticate
+    }
+}
+```
+
+#### Angular (TypeScript)
+```typescript
+import { Injectable } from '@angular/core';
+import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
+import { auth } from './firebase-config';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+  
+  async authenticateWithPhone(phoneNumber: string): Promise<string> {
+    const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {});
+    const userCredential = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    return await userCredential.user.getIdToken();
+  }
+  
+  async authenticateWithBackend(idToken: string): Promise<any> {
+    const response = await fetch('/api/users/authenticate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idToken: idToken,
+        name: "User Name", // optional
+        deviceInfo: "Web"
+      })
+    });
+    return await response.json();
+  }
 }
 ```
 
@@ -1037,10 +1092,12 @@ API endpoints are rate-limited to prevent abuse:
 
 | Endpoint Type | Limit | Window |
 |---------------|-------|--------|
-| Authentication | 5 requests | 1 minute |
+| Firebase Authentication | 10 requests | 1 minute |
 | Messaging | 100 requests | 1 minute |
 | Media Upload | 10 requests | 1 minute |
 | Other APIs | 60 requests | 1 minute |
+
+**Note:** Firebase handles OTP rate limiting on their end, so the backend only limits the token verification requests.
 
 ## Security Best Practices
 
@@ -1083,4 +1140,22 @@ For issues and support:
 
 ---
 
-*Last updated: September 20, 2024*
+## Authentication Flow Changes
+
+**Important Update:** The authentication flow has been updated to use Firebase token-based authentication instead of OTP verification. 
+
+### What Changed:
+- ✅ **Removed:** `/api/users/send-otp` endpoint
+- ✅ **Updated:** `/api/users/authenticate` now accepts Firebase ID tokens
+- ✅ **Frontend:** Now handles OTP verification directly with Firebase
+- ✅ **Backend:** Verifies Firebase tokens and extracts user information
+
+### Migration Guide:
+1. **Frontend:** Integrate Firebase Authentication SDK
+2. **Authentication:** Use Firebase's `signInWithPhoneNumber()` method
+3. **Backend:** Send Firebase ID token to `/api/users/authenticate`
+4. **Security:** Firebase handles OTP rate limiting and security
+
+---
+
+*Last updated: September 20, 2024 - Updated for Firebase Token Authentication*

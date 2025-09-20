@@ -10,15 +10,10 @@ import java.util.List;
 public interface UserService {
 
     /**
-     * Send OTP to phone number for verification
-     */
-    SendOtpResponse sendOTP(SendOtpRequest request);
-
-    /**
-     * WhatsApp-style authentication - handles both registration and login
+     * Firebase token authentication - handles both registration and login
      * If user exists, performs login; if not, creates new user
      */
-    AuthResponse authenticate(AuthenticationRequest request);
+    AuthResponse authenticateWithFirebase(FirebaseAuthRequest request);
 
     // Legacy methods - kept for backward compatibility
     @Deprecated

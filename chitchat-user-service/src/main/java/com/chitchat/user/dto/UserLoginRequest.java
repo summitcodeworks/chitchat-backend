@@ -8,12 +8,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for user login request
+ * DTO for legacy user login request (deprecated - use FirebaseAuthRequest instead)
+ * @deprecated Use FirebaseAuthRequest for new implementations
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Deprecated
 public class UserLoginRequest {
     
     @NotBlank(message = "Phone number is required")

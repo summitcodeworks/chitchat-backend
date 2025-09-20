@@ -37,8 +37,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints (no authentication required)
                 .requestMatchers(
-                    "/api/users/register",
-                    "/api/users/login",
+                    "/api/users/authenticate",       // Firebase token authentication
+                    "/api/users/register",           // Legacy registration
+                    "/api/users/login",              // Legacy login
                     "/api/users/phone/**",
                     "/api/users/admin/password/**",  // Password utility endpoints
                     "/actuator/**",                   // Actuator endpoints

@@ -8,13 +8,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for WhatsApp-style authentication request
- * Handles both registration and login in a single endpoint
+ * DTO for legacy authentication request (deprecated - use FirebaseAuthRequest instead)
+ * @deprecated Use FirebaseAuthRequest for new implementations
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Deprecated
 public class AuthenticationRequest {
 
     @NotBlank(message = "Phone number is required")

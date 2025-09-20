@@ -33,25 +33,51 @@ public class UserServiceImpl implements UserService {
     private final FirebaseService firebaseService;
 
     @Override
-    public SendOtpResponse sendOTP(SendOtpRequest request) {
-        log.info("Send OTP request for phone number: {}", request.getPhoneNumber());
+    @Transactional
+    public AuthResponse authenticateWithFirebase(FirebaseAuthRequest request) {
+        log.info("Firebase authentication request received");
 
         try {
-            // Send OTP via Firebase
-            String testOtp = firebaseService.sendOTP(request.getPhoneNumber());
+            // Verify Firebase ID token
+            com.google.firebase.auth.FirebaseToken decodedToken = firebaseService.verifyIdToken(request.getIdToken());
+            
+            // Get user information from Firebase
+            com.google.firebase.auth.UserRecord firebaseUser = firebaseService.getUserByUid(decodedToken.getUid());
+            
+            String phoneNumber = firebaseUser.getPhoneNumber();
+            if (phoneNumber == null || phoneNumber.isEmpty()) {
+                throw new ChitChatException("Phone number not found in Firebase token", HttpStatus.BAD_REQUEST, "INVALID_TOKEN");
+            }
 
-            log.info("OTP sent successfully to: {}", request.getPhoneNumber());
+            log.info("Firebase token verified for phone number: {}", phoneNumber);
 
-            return SendOtpResponse.builder()
-                    .phoneNumber(request.getPhoneNumber())
-                    .message("OTP sent successfully")
-                    .otpSent(true)
-                    .testOtp(testOtp) // Only for development/testing
+            // Check if user exists in our database
+            User user = userRepository.findByPhoneNumber(phoneNumber)
+                    .orElse(null);
+
+            if (user == null) {
+                // Create new user
+                user = createNewUserFromFirebase(firebaseUser, request);
+                log.info("New user created from Firebase: {}", user.getId());
+            } else {
+                // Update existing user
+                updateUserLastLogin(user);
+                log.info("Existing user authenticated via Firebase: {}", user.getId());
+            }
+
+            // Generate JWT token
+            String jwtToken = jwtService.generateToken(user);
+
+            return AuthResponse.builder()
+                    .token(jwtToken)
+                    .user(mapToUserResponse(user))
+                    .isNewUser(user.getCreatedAt().isAfter(LocalDateTime.now().minusMinutes(1)))
+                    .message("Firebase authentication successful")
                     .build();
 
         } catch (Exception e) {
-            log.error("Failed to send OTP to: {}", request.getPhoneNumber(), e);
-            throw new ChitChatException("Failed to send OTP", HttpStatus.INTERNAL_SERVER_ERROR, "OTP_SEND_FAILED");
+            log.error("Firebase authentication failed", e);
+            throw new ChitChatException("Firebase authentication failed", HttpStatus.UNAUTHORIZED, "FIREBASE_AUTH_FAILED");
         }
     }
 
@@ -304,5 +330,39 @@ public class UserServiceImpl implements UserService {
                 .isOnline(user.getIsOnline())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+    
+    /**
+     * Create a new user from Firebase authentication
+     */
+    private User createNewUserFromFirebase(com.google.firebase.auth.UserRecord firebaseUser, FirebaseAuthRequest request) {
+        String name = request.getName();
+        if (name == null || name.trim().isEmpty()) {
+            // Try to get name from Firebase user
+            name = firebaseUser.getDisplayName();
+            if (name == null || name.trim().isEmpty()) {
+                // Use phone number as fallback
+                name = firebaseUser.getPhoneNumber();
+            }
+        }
+        
+        User user = User.builder()
+                .phoneNumber(firebaseUser.getPhoneNumber())
+                .name(name.trim())
+                .isActive(true)
+                .isOnline(true)
+                .lastSeen(LocalDateTime.now())
+                .build();
+        
+        return userRepository.save(user);
+    }
+    
+    /**
+     * Update user's last login information
+     */
+    private void updateUserLastLogin(User user) {
+        user.setLastSeen(LocalDateTime.now());
+        user.setIsOnline(true);
+        userRepository.save(user);
     }
 }
