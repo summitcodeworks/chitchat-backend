@@ -2,6 +2,9 @@
 
 echo "Setting up ChitChat Backend Databases..."
 
+# Set PostgreSQL password environment variable
+export PGPASSWORD='8ivhaah8'
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -44,16 +47,19 @@ sleep 30
 
 # Check PostgreSQL connection
 print_status "Testing PostgreSQL connection..."
-if docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
     print_status "PostgreSQL is ready!"
 else
     print_warning "PostgreSQL might not be ready yet. Waiting a bit more..."
     sleep 10
-    if docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+    if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
         print_status "PostgreSQL is ready!"
     else
-        print_error "Failed to connect to PostgreSQL. Please check the logs:"
-        docker logs chitchat-postgres
+        print_error "Failed to connect to PostgreSQL. Please check your connection to:"
+        echo "  Host: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com"
+        echo "  Port: 5432"
+        echo "  Database: chitchat"
+        echo "  Username: summitcodeworks"
         exit 1
     fi
 fi
@@ -75,10 +81,10 @@ fi
 
 # Verify PostgreSQL tables
 print_status "Verifying PostgreSQL tables..."
-TABLES=$(docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+TABLES=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
 if [ "$TABLES" -gt 0 ]; then
     print_status "PostgreSQL tables created successfully! ($TABLES tables found)"
-    docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "\dt"
+    psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt"
 else
     print_warning "No tables found in PostgreSQL. The initialization script might not have run."
 fi
@@ -95,7 +101,7 @@ fi
 
 # Check admin user
 print_status "Checking default admin user..."
-ADMIN_COUNT=$(docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
+ADMIN_COUNT=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
 if [ "$ADMIN_COUNT" -gt 0 ]; then
     print_status "Default admin user created successfully!"
     print_warning "Default admin credentials: username='admin', password='admin123'"

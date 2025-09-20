@@ -2,6 +2,9 @@
 
 echo "Verifying ChitChat Backend Database Setup..."
 
+# Set PostgreSQL password environment variable
+export PGPASSWORD='8ivhaah8'
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -44,19 +47,19 @@ fi
 # Test PostgreSQL connection and tables
 print_header "Verifying PostgreSQL Database..."
 
-if docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
+if psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT 1;" > /dev/null 2>&1; then
     print_status "PostgreSQL connection successful"
     
     # Check tables
-    TABLES=$(docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+    TABLES=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
     print_status "Found $TABLES tables in PostgreSQL"
     
     # List all tables
     echo "PostgreSQL Tables:"
-    docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "\dt" | grep -E "^\s+\w+\s+\|\s+table"
+    psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "\dt" | grep -E "^\s+\w+\s+\|\s+table"
     
     # Check admin user
-    ADMIN_COUNT=$(docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
+    ADMIN_COUNT=$(psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -t -c "SELECT COUNT(*) FROM admin_users WHERE username = 'admin';" | tr -d ' ')
     if [ "$ADMIN_COUNT" -gt 0 ]; then
         print_status "Default admin user exists"
     else
@@ -65,7 +68,7 @@ if docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT 
     
 else
     print_error "Failed to connect to PostgreSQL"
-    echo "Check logs with: docker logs chitchat-postgres"
+    echo "Check your connection to: ec2-13-126-137-73.ap-south-1.compute.amazonaws.com:5432"
     exit 1
 fi
 
@@ -105,7 +108,7 @@ fi
 print_header "Checking Database Indexes..."
 
 echo "PostgreSQL Indexes:"
-docker exec chitchat-postgres psql -U summitcodeworks -d chitchat -c "SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;" | grep -E "^\s+\w+\s+\|\s+\w+\s+\|\s+\w+"
+psql -h ec2-13-126-137-73.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c "SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY tablename, indexname;" | grep -E "^\s+\w+\s+\|\s+\w+\s+\|\s+\w+"
 
 echo ""
 echo "MongoDB Indexes:"
