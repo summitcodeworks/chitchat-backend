@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean:*)",
+      "Bash(docker:*)",
+      "Bash(/dev/null)",
+      "Bash(./verify-database.sh:*)",
+      "Bash(curl:*)",
+      "Read(//private/tmp/**)",
+      "Bash(while read file)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Read(//tmp/**)",
+      "Bash(cat:*)",
+      "Bash(mvn spring-boot:run:*)",
+      "Bash(tee:*)",
+      "Bash(pkill:*)",
+      "Bash(./start-services.sh:*)",
+      "Bash(cp:*)",
+      "Bash(javac:*)",
+      "Bash(java:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
