@@ -6,8 +6,11 @@ ChitChat is a comprehensive chat application backend built with Spring Boot micr
 
 ### Base URLs
 
-- **API Gateway**: `http://localhost:9101`
+- **Local Development**: `http://localhost:9101`
+- **Remote Server**: `http://65.1.185.194:9101`
 - **Eureka Server**: `http://localhost:9100`
+
+**Note:** Replace `localhost:9101` with `65.1.185.194:9101` when testing against the remote server.
 
 ### Authentication
 
@@ -51,14 +54,38 @@ All API responses follow this structure:
 curl -X POST http://localhost:9101/api/users/register \
   -H "Content-Type: application/json" \
   -d '{
-    "firstName": "John",
-    "lastName": "Doe",
     "phoneNumber": "+1234567890",
-    "email": "john.doe@example.com",
-    "password": "securePassword123",
-    "dateOfBirth": "1990-01-01",
-    "profilePicture": "https://example.com/profile.jpg"
+    "name": "John Doe",
+    "deviceInfo": "Android App"
   }'
+```
+
+**Required Fields:**
+- `phoneNumber`: String (E.164 format, e.g., +1234567890)
+- `name`: String (Full name)
+
+**Optional Fields:**
+- `deviceInfo`: String (Device information)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "User registered successfully",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "user": {
+      "id": 1,
+      "phoneNumber": "+1234567890",
+      "name": "John Doe",
+      "avatarUrl": null,
+      "about": null,
+      "lastSeen": null,
+      "isOnline": false,
+      "createdAt": "2025-09-20T13:51:22.606182338"
+    }
+  }
+}
 ```
 
 ### User Login
@@ -67,8 +94,34 @@ curl -X POST http://localhost:9101/api/users/login \
   -H "Content-Type: application/json" \
   -d '{
     "phoneNumber": "+1234567890",
-    "password": "securePassword123"
+    "otp": "123456"
   }'
+```
+
+**Required Fields:**
+- `phoneNumber`: String (E.164 format, e.g., +1234567890)
+- `otp`: String (One-Time Password - for testing use "123456")
+
+**Note:** This system uses OTP-based authentication via phone number, not traditional password authentication. For testing purposes, use OTP "123456".
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "user": {
+      "id": 1,
+      "phoneNumber": "+1234567890",
+      "name": "John Doe",
+      "avatarUrl": null,
+      "about": null,
+      "lastSeen": "2025-09-20T13:51:22.606182338",
+      "isOnline": true
+    }
+  }
+}
 ```
 
 ### Get User Profile
@@ -83,13 +136,18 @@ curl -X PUT http://localhost:9101/api/users/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "firstName": "John Updated",
-    "lastName": "Doe Updated",
-    "email": "john.updated@example.com",
-    "bio": "Updated bio",
-    "profilePicture": "https://example.com/new-profile.jpg"
+    "name": "John Doe Updated",
+    "avatarUrl": "https://example.com/new-profile.jpg",
+    "about": "Updated bio"
   }'
 ```
+
+**Required Fields:**
+- `name`: String (Full name)
+
+**Optional Fields:**
+- `avatarUrl`: String (Profile picture URL)
+- `about`: String (User bio/about text)
 
 ### Sync Contacts
 ```bash
