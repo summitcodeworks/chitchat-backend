@@ -19,7 +19,8 @@
       "Bash(./start-services.sh:*)",
       "Bash(cp:*)",
       "Bash(javac:*)",
-      "Bash(java:*)"
+      "Bash(java:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
