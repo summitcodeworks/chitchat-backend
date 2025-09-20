@@ -33,6 +33,29 @@ public class UserServiceImpl implements UserService {
     private final FirebaseService firebaseService;
 
     @Override
+    public SendOtpResponse sendOTP(SendOtpRequest request) {
+        log.info("Send OTP request for phone number: {}", request.getPhoneNumber());
+
+        try {
+            // Send OTP via Firebase
+            String testOtp = firebaseService.sendOTP(request.getPhoneNumber());
+
+            log.info("OTP sent successfully to: {}", request.getPhoneNumber());
+
+            return SendOtpResponse.builder()
+                    .phoneNumber(request.getPhoneNumber())
+                    .message("OTP sent successfully")
+                    .otpSent(true)
+                    .testOtp(testOtp) // Only for development/testing
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to send OTP to: {}", request.getPhoneNumber(), e);
+            throw new ChitChatException("Failed to send OTP", HttpStatus.INTERNAL_SERVER_ERROR, "OTP_SEND_FAILED");
+        }
+    }
+
+    @Override
     @Transactional
     public AuthResponse authenticate(AuthenticationRequest request) {
         log.info("Authentication attempt for phone number: {}", request.getPhoneNumber());

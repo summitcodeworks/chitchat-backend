@@ -21,6 +21,13 @@ public class UserController {
     
     private final UserService userService;
 
+    @PostMapping("/send-otp")
+    public ResponseEntity<ApiResponse<SendOtpResponse>> sendOTP(@Valid @RequestBody SendOtpRequest request) {
+        log.info("Send OTP request received for phone: {}", request.getPhoneNumber());
+        SendOtpResponse response = userService.sendOTP(request);
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
+
     @PostMapping("/authenticate")
     public ResponseEntity<ApiResponse<AuthResponse>> authenticateUser(@Valid @RequestBody AuthenticationRequest request) {
         log.info("Authentication request received for phone: {}", request.getPhoneNumber());

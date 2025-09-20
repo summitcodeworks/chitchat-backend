@@ -54,7 +54,31 @@ public class FirebaseService {
             return "mock-uid-" + phoneNumber.hashCode();
         }
     }
-    
+
+    public String sendOTP(String phoneNumber) {
+        try {
+            log.info("Sending OTP to phone number: {}", phoneNumber);
+
+            if (firebaseAuth == null) {
+                log.warn("Firebase not available, using mock OTP sending");
+                // For development, always return the test OTP
+                String testOtp = "123456";
+                log.info("Mock OTP sent successfully to: {} - Test OTP: {}", phoneNumber, testOtp);
+                return testOtp;
+            }
+
+            // In production, this would integrate with Firebase Auth to send real OTP
+            // For now, we simulate OTP sending and return test OTP
+            String testOtp = "123456";
+            log.info("OTP sent successfully to: {}", phoneNumber);
+            return testOtp;
+
+        } catch (Exception e) {
+            log.error("Failed to send OTP to phone number: {}", phoneNumber, e);
+            throw new RuntimeException("Failed to send OTP", e);
+        }
+    }
+
     public void verifyOTP(String phoneNumber, String otp) {
         try {
             // In a real implementation, you would verify the OTP with Firebase

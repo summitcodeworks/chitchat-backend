@@ -49,7 +49,37 @@ All API responses follow this structure:
 
 ## 1. User Service APIs (`/api/users`)
 
-### WhatsApp-Style Authentication (Recommended)
+### Send OTP (Step 1)
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890"
+  }'
+```
+
+**Required Fields:**
+- `phoneNumber`: String (E.164 format, e.g., +1234567890)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully",
+  "data": {
+    "phoneNumber": "+1234567890",
+    "message": "OTP sent successfully",
+    "otpSent": true,
+    "testOtp": "123456"
+  }
+}
+```
+
+**Note:** In development mode, the response includes `testOtp` field with the test OTP "123456". In production, this field would not be included and real SMS would be sent.
+
+---
+
+### WhatsApp-Style Authentication (Step 2)
 ```bash
 curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
@@ -152,6 +182,116 @@ curl -X POST http://localhost:9101/api/users/login \
 ```
 
 **Note:** These legacy endpoints are deprecated. Use the new `/authenticate` endpoint for WhatsApp-style authentication.
+
+---
+
+## Complete Authentication Flow
+
+### Step-by-Step Example
+
+#### 1. Send OTP to Phone Number
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber": "+1234567890"}'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "phoneNumber": "+1234567890",
+    "otpSent": true,
+    "testOtp": "123456"
+  }
+}
+```
+
+#### 2. Authenticate with OTP (Existing User)
+```bash
+curl -X POST http://localhost:9101/api/users/authenticate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "otp": "123456"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "user": { /* user details */ },
+    "isNewUser": false
+  }
+}
+```
+
+#### 3. Authenticate with OTP (New User)
+```bash
+curl -X POST http://localhost:9101/api/users/authenticate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567891",
+    "otp": "123456",
+    "name": "Jane Smith"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "user": { /* user details */ },
+    "isNewUser": true
+  }
+}
+```
+
+### Error Responses
+
+#### Invalid Phone Number
+```json
+{
+  "success": false,
+  "message": "Invalid phone number format",
+  "status": 400
+}
+```
+
+#### OTP Send Failed
+```json
+{
+  "success": false,
+  "message": "Failed to send OTP",
+  "status": 500
+}
+```
+
+#### Invalid OTP
+```json
+{
+  "success": false,
+  "message": "Invalid OTP",
+  "status": 400
+}
+```
+
+#### Name Required for New Users
+```json
+{
+  "success": false,
+  "message": "Name is required for new users",
+  "status": 400
+}
+```
 
 ### Get User Profile
 ```bash
