@@ -27,9 +27,13 @@ public class SecurityConfig {
             // Configure CORS
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // Allow all requests to pass through (let downstream services handle auth)
+            // Configure authorization - let our custom filter handle authentication
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/api/**", "/ws/**", "/actuator/**").permitAll()
+                // Public endpoints
+                .pathMatchers("/api/users/register", "/api/users/login", "/api/users/verify-otp", "/api/users/refresh-token").permitAll()
+                .pathMatchers("/actuator/**").permitAll()
+                // All other endpoints require authentication
+                .pathMatchers("/api/**", "/ws/**").authenticated()
                 .anyExchange().permitAll()
             )
 

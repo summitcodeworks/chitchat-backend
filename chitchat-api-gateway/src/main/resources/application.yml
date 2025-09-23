@@ -66,6 +66,20 @@ eureka:
   instance:
     prefer-ip-address: true
 
+jwt:
+  secret: chitchat-secret-key-for-jwt-token-generation-2024
+  expiration: 86400000
+
+firebase:
+  project-id: chitchat-9c074
+  web-api-key: AIzaSyBefqzOkJgvV0qnmc4Qds43Gi5XvdmAl7g
+  auth-domain: chitchat-9c074.firebaseapp.com
+  storage-bucket: chitchat-9c074.firebasestorage.app
+  messaging-sender-id: 508577813087
+  app-id: 1:508577813087:web:8768669bde9c08b1f5c1ea
+  measurement-id: G-6X3E3LRN8Z
+  credentials-path: classpath:firebase-service-account.json
+
 management:
   endpoints:
     web:
