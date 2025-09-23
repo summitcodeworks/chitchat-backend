@@ -22,7 +22,8 @@
       "Bash(java:*)",
       "Bash(echo:*)",
       "Bash(chmod:*)",
-      "Bash(./run-dev.sh:*)"
+      "Bash(./run-dev.sh:*)",
+      "Bash(./setup-database.sh:*)"
     ],
     "deny": [],
     "ask": []

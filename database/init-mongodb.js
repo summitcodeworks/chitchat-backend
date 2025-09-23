@@ -9,7 +9,8 @@ db = db.getSiblingDB('chitchat');
 // Create collections with validation schemas
 
 // Messages collection
-db.createCollection("messages", {
+if (!db.getCollectionNames().includes("messages")) {
+  db.createCollection("messages", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
@@ -40,10 +41,14 @@ db.createCollection("messages", {
       }
     }
   }
-});
+  });
+} else {
+  print("Messages collection already exists, skipping creation...");
+}
 
 // Groups collection
-db.createCollection("groups", {
+if (!db.getCollectionNames().includes("groups")) {
+  db.createCollection("groups", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
@@ -84,10 +89,14 @@ db.createCollection("groups", {
       }
     }
   }
-});
+  });
+} else {
+  print("Groups collection already exists, skipping creation...");
+}
 
 // Statuses collection
-db.createCollection("statuses", {
+if (!db.getCollectionNames().includes("statuses")) {
+  db.createCollection("statuses", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
@@ -133,7 +142,10 @@ db.createCollection("statuses", {
       }
     }
   }
-});
+  });
+} else {
+  print("Statuses collection already exists, skipping creation...");
+}
 
 // Create indexes for better performance
 

@@ -92,6 +92,20 @@ else
     print_warning "No tables found in PostgreSQL. The initialization script might not have run."
 fi
 
+# Initialize MongoDB collections
+print_status "Initializing MongoDB collections..."
+if [ -f "database/init-mongodb.js" ]; then
+    mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --file database/init-mongodb.js
+    if [ $? -eq 0 ]; then
+        print_status "MongoDB initialization script executed successfully!"
+    else
+        print_warning "MongoDB initialization script completed with warnings (collections may already exist)."
+        print_status "Continuing with normal procedure..."
+    fi
+else
+    print_warning "MongoDB initialization script not found at database/init-mongodb.js"
+fi
+
 # Verify MongoDB collections
 print_status "Verifying MongoDB collections..."
 COLLECTIONS=$(mongosh "mongodb://summitcodeworks:8ivhaah8@ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:27017/chitchat" --eval "db.getCollectionNames().length" --quiet | tr -d ' ')
