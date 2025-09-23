@@ -41,17 +41,9 @@ public class FirebaseConfig {
                             .setProjectId(projectId)
                             .build();
                 } else {
-                    log.warn("No service account key found, attempting to use default credentials");
-                    try {
-                        // Use default credentials (for local development or cloud environment)
-                        options = FirebaseOptions.builder()
-                                .setCredentials(GoogleCredentials.getApplicationDefault())
-                                .setProjectId(projectId)
-                                .build();
-                    } catch (IOException defaultCredsException) {
-                        log.warn("Default credentials not available, skipping Firebase initialization");
-                        throw defaultCredsException;
-                    }
+                    log.warn("No service account key found, skipping Firebase initialization");
+                    log.warn("Continuing without Firebase initialization - auth will be mocked");
+                    return; // Exit early without throwing exception
                 }
 
                 FirebaseApp.initializeApp(options);
