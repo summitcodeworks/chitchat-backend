@@ -2,6 +2,7 @@ package com.chitchat.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * ChitChat API Gateway Application
@@ -15,6 +16,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
     org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration.class,
     org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration.class
 })
+@EnableFeignClients
 public class ChitChatApiGatewayApplication {
 
     public static void main(String[] args) {

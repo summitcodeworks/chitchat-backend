@@ -39,4 +39,11 @@ public interface UserService {
     UserResponse getUserByPhoneNumber(String phoneNumber);
     
     UserResponse getUserById(Long userId);
+    
+    /**
+     * Check if a phone number exists in the system for creating new chats
+     * @param phoneNumber The phone number to check
+     * @return PhoneNumberCheckResponse with existence status and user details if found
+     */
+    PhoneNumberCheckResponse checkPhoneNumberExists(String phoneNumber);
 }

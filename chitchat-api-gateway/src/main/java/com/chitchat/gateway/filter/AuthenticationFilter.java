@@ -2,6 +2,7 @@ package com.chitchat.gateway.filter;
 
 import com.chitchat.gateway.service.FirebaseService;
 import com.chitchat.gateway.service.JwtService;
+import com.chitchat.gateway.client.UserServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -31,6 +32,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     private final FirebaseService firebaseService;
     private final JwtService jwtService;
+    private final UserServiceClient userServiceClient;
 
     // Public endpoints that don't require authentication
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
@@ -150,6 +152,18 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             builder.header("X-User-Email", (String) userInfo.get("email"));
             builder.header("X-User-Name", (String) userInfo.get("name"));
             builder.header("X-Token-Type", "firebase");
+            
+            // For Firebase tokens, we need to look up the user ID from the user service
+            // This is a simplified approach - in production, you'd call the user service
+            String phoneNumber = (String) userInfo.get("phoneNumber");
+            if (phoneNumber != null) {
+                // For now, we'll use a simple approach to get user ID
+                // In production, this should call the user service to get the actual user ID
+                Long userId = getUserIdByPhoneNumber(phoneNumber);
+                if (userId != null) {
+                    builder.header("X-User-ID", String.valueOf(userId));
+                }
+            }
         } else if ("jwt".equals(userInfo.get("tokenType"))) {
             builder.header("X-User-ID", String.valueOf(userInfo.get("userId")));
             builder.header("X-User-Username", (String) userInfo.get("username"));
@@ -174,5 +188,30 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public int getOrder() {
         return -100; // High priority to run before other filters
+    }
+    
+    /**
+     * Get user ID by phone number
+     * Calls the user service to get the actual user ID
+     */
+    private Long getUserIdByPhoneNumber(String phoneNumber) {
+        log.info("Looking up user ID for phone number: {}", phoneNumber);
+        
+        try {
+            // Call user service to get user by phone number
+            UserServiceClient.UserResponse userResponse = userServiceClient.getUserByPhoneNumber(phoneNumber);
+            
+            if (userResponse != null && userResponse.getId() != null) {
+                log.info("Found user ID {} for phone number: {}", userResponse.getId(), phoneNumber);
+                return userResponse.getId();
+            } else {
+                log.warn("User not found for phone number: {}", phoneNumber);
+                return null; // User not found
+            }
+            
+        } catch (Exception e) {
+            log.error("Error looking up user ID for phone number: {}", phoneNumber, e);
+            return null; // Return null on error
+        }
     }
 }

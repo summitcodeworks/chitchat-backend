@@ -27,9 +27,12 @@ public class MessagingController {
     
     @PostMapping("/send")
     public ResponseEntity<ApiResponse<MessageResponse>> sendMessage(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
+            @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
+            @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
+            @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
             @Valid @RequestBody SendMessageRequest request) {
-        Long senderId = extractUserIdFromToken(token);
+        Long senderId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
         MessageResponse response = messagingService.sendMessage(senderId, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Message sent successfully"));
     }
@@ -160,5 +163,31 @@ public class MessagingController {
         // This is a simplified implementation
         // In a real application, you would use a proper JWT service
         return 1L; // Placeholder
+    }
+    
+    private Long extractUserIdFromHeaders(String userIdHeader, String firebaseUidHeader, String phoneNumberHeader, String tokenType) {
+        log.info("Extracting user ID from headers - userIdHeader: {}, firebaseUidHeader: {}, phoneNumberHeader: {}, tokenType: {}", 
+                userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
+        
+        if ("jwt".equals(tokenType) && userIdHeader != null) {
+            try {
+                return Long.parseLong(userIdHeader);
+            } catch (NumberFormatException e) {
+                log.error("Invalid user ID format: {}", userIdHeader);
+                throw new RuntimeException("Invalid user ID format");
+            }
+        } else if ("firebase".equals(tokenType) && userIdHeader != null) {
+            // For Firebase tokens, the API Gateway should have provided the user ID
+            log.info("Firebase token detected with user ID: {}", userIdHeader);
+            try {
+                return Long.parseLong(userIdHeader);
+            } catch (NumberFormatException e) {
+                log.error("Invalid user ID format from API Gateway: {}", userIdHeader);
+                throw new RuntimeException("Invalid user ID format from API Gateway");
+            }
+        } else {
+            log.error("Unable to extract user ID from headers");
+            throw new RuntimeException("Unable to extract user ID from headers");
+        }
     }
 }

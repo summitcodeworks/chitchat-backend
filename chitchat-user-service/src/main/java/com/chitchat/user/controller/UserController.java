@@ -116,6 +116,13 @@ public class UserController {
         UserResponse response = userService.getUserById(userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+    
+    @GetMapping("/check-phone/{phoneNumber}")
+    public ResponseEntity<ApiResponse<PhoneNumberCheckResponse>> checkPhoneNumberExists(@PathVariable String phoneNumber) {
+        log.info("Phone number existence check request for: {}", phoneNumber);
+        PhoneNumberCheckResponse response = userService.checkPhoneNumberExists(phoneNumber);
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
 
     @PostMapping("/admin/password/verify")
     public ResponseEntity<ApiResponse<PasswordUtil.PasswordTestResult>> verifyPassword(

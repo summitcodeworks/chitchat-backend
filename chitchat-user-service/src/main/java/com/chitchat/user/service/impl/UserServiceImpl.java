@@ -254,6 +254,43 @@ public class UserServiceImpl implements UserService {
         return mapToUserResponse(user);
     }
     
+    @Override
+    public PhoneNumberCheckResponse checkPhoneNumberExists(String phoneNumber) {
+        log.info("Checking if phone number exists: {}", phoneNumber);
+        
+        // Validate phone number format
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            throw new ChitChatException("Phone number cannot be empty", HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
+        }
+        
+        // Clean and format phone number
+        String cleanPhoneNumber = phoneNumber.trim();
+        
+        // Check if user exists with this phone number
+        java.util.Optional<User> userOptional = userRepository.findByPhoneNumber(cleanPhoneNumber);
+        
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            log.info("Phone number {} exists for user ID: {}", cleanPhoneNumber, user.getId());
+            
+            return PhoneNumberCheckResponse.builder()
+                    .phoneNumber(cleanPhoneNumber)
+                    .exists(true)
+                    .user(mapToUserResponse(user))
+                    .message("User found with this phone number")
+                    .build();
+        } else {
+            log.info("Phone number {} does not exist in the system", cleanPhoneNumber);
+            
+            return PhoneNumberCheckResponse.builder()
+                    .phoneNumber(cleanPhoneNumber)
+                    .exists(false)
+                    .user(null)
+                    .message("No user found with this phone number")
+                    .build();
+        }
+    }
+    
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
