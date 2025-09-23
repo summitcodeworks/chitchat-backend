@@ -18,4 +18,5 @@ public class ErrorResponse {
     private String errorCode;
     private String details;
     private String path;
+    private String traceId;
 }
