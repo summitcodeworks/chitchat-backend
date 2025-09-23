@@ -114,10 +114,10 @@ start_service() {
     return 0
 }
 
-# Kill any existing processes on ports 9100-9108
+# Kill any existing processes on ports 8761, 9101-9108
 print_header "Cleaning up existing processes..."
-echo "Killing existing processes on ports 9100-9108..."
-for port in 9100 9101 9102 9103 9104 9105 9106 9107 9108; do
+echo "Killing existing processes on ports 8761, 9101-9108..."
+for port in 8761 9101 9102 9103 9104 9105 9106 9107 9108; do
     PID=$(lsof -ti:$port)
     if [ ! -z "$PID" ]; then
         echo "Killing process on port $port (PID: $PID)"
@@ -180,9 +180,9 @@ else
     print_warning "Database verification script not found. Skipping verification."
 fi
 
-# Start Eureka Server (Port 9100)
+# Start Eureka Server (Port 8761)
 print_header "Starting microservices..."
-start_service "chitchat-eureka-server" 9100 "$BLUE"
+start_service "chitchat-eureka-server" 8761 "$BLUE"
 
 # Wait for Eureka to start
 print_status "Waiting for Eureka Server to start..."
@@ -223,7 +223,7 @@ print_header "All services started successfully!"
 echo ""
 echo "Service URLs:"
 echo "============="
-echo "Eureka Dashboard: http://localhost:9100"
+echo "Eureka Dashboard: http://localhost:8761"
 echo "API Gateway: http://localhost:9101"
 echo "User Service: http://localhost:9102"
 echo "Messaging Service: http://localhost:9103"

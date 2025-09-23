@@ -3,8 +3,8 @@
 echo "Stopping ChitChat Backend Services..."
 
 # Kill processes on specific ports
-echo "Killing processes on ports 9100-9108..."
-for port in 9100 9101 9102 9103 9104 9105 9106 9107 9108; do
+echo "Killing processes on ports 8761, 9101-9108..."
+for port in 8761 9101 9102 9103 9104 9105 9106 9107 9108; do
     PID=$(lsof -ti:$port)
     if [ ! -z "$PID" ]; then
         echo "Killing process on port $port (PID: $PID)"
