@@ -2,7 +2,6 @@ package com.chitchat.gateway.filter;
 
 import com.chitchat.gateway.service.FirebaseService;
 import com.chitchat.gateway.service.JwtService;
-import com.chitchat.gateway.client.UserServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -13,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -32,7 +32,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     private final FirebaseService firebaseService;
     private final JwtService jwtService;
-    private final UserServiceClient userServiceClient;
+    private final WebClient.Builder webClientBuilder;
 
     // Public endpoints that don't require authentication
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
@@ -192,14 +192,21 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     
     /**
      * Get user ID by phone number
-     * Calls the user service to get the actual user ID
+     * Calls the user service to get the actual user ID using WebClient
      */
     private Long getUserIdByPhoneNumber(String phoneNumber) {
         log.info("Looking up user ID for phone number: {}", phoneNumber);
         
         try {
-            // Call user service to get user by phone number
-            UserServiceClient.UserResponse userResponse = userServiceClient.getUserByPhoneNumber(phoneNumber);
+            // Use WebClient to call user service
+            WebClient webClient = webClientBuilder.build();
+            
+            UserResponse userResponse = webClient
+                .get()
+                .uri("http://chitchat-user-service/api/users/phone/{phoneNumber}", phoneNumber)
+                .retrieve()
+                .bodyToMono(UserResponse.class)
+                .block(); // Blocking call for simplicity in filter
             
             if (userResponse != null && userResponse.getId() != null) {
                 log.info("Found user ID {} for phone number: {}", userResponse.getId(), phoneNumber);
@@ -213,5 +220,44 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             log.error("Error looking up user ID for phone number: {}", phoneNumber, e);
             return null; // Return null on error
         }
+    }
+    
+    /**
+     * User response DTO for WebClient
+     */
+    private static class UserResponse {
+        private Long id;
+        private String phoneNumber;
+        private String name;
+        private String avatarUrl;
+        private String about;
+        private String lastSeen;
+        private Boolean isOnline;
+        private String createdAt;
+        
+        // Getters and setters
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        
+        public String getPhoneNumber() { return phoneNumber; }
+        public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+        
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        
+        public String getAvatarUrl() { return avatarUrl; }
+        public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+        
+        public String getAbout() { return about; }
+        public void setAbout(String about) { this.about = about; }
+        
+        public String getLastSeen() { return lastSeen; }
+        public void setLastSeen(String lastSeen) { this.lastSeen = lastSeen; }
+        
+        public Boolean getIsOnline() { return isOnline; }
+        public void setIsOnline(Boolean isOnline) { this.isOnline = isOnline; }
+        
+        public String getCreatedAt() { return createdAt; }
+        public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
     }
 }
