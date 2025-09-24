@@ -38,6 +38,8 @@ public class SecurityConfig {
                 // Public endpoints (no authentication required)
                 .requestMatchers(
                     "/api/users/authenticate",       // Firebase token authentication
+                    "/api/users/send-otp",           // SMS OTP sending
+                    "/api/users/verify-otp",         // SMS OTP verification
                     "/api/users/register",           // Legacy registration
                     "/api/users/login",              // Legacy login
                     "/api/users/phone/**",

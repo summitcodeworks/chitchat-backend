@@ -49,7 +49,263 @@ All API responses follow this structure:
 
 ## 1. User Service APIs (`/api/users`)
 
-### Firebase Token Authentication
+### SMS-Based Authentication (Primary Method)
+
+#### Send OTP
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890"
+  }'
+```
+
+**Required Fields:**
+- `phoneNumber`: String (Phone number in international format, e.g., +1234567890)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully",
+  "data": null,
+  "timestamp": "2025-09-24T06:13:54.159093",
+  "traceId": null
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Failed to send OTP. Please try again.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### Verify OTP and Authenticate
+```bash
+curl -X POST http://localhost:9101/api/users/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "otp": "123456"
+  }'
+```
+
+**Required Fields:**
+- `phoneNumber`: String (Same phone number used in send-otp)
+- `otp`: String (6-digit OTP code received via SMS)
+
+**Response for Existing User (Login):**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": {
+      "id": 1,
+      "phoneNumber": "+1234567890",
+      "name": "John Doe",
+      "avatarUrl": null,
+      "about": null,
+      "lastSeen": "2025-09-24T06:13:54.159093",
+      "isOnline": true
+    },
+    "message": "Login successful"
+  },
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+**Response for New User (Registration):**
+```json
+{
+  "success": true,
+  "message": "User registered and authenticated successfully",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": {
+      "id": 2,
+      "phoneNumber": "+1234567891",
+      "name": "User",
+      "avatarUrl": null,
+      "about": null,
+      "lastSeen": "2025-09-24T06:13:54.159093",
+      "isOnline": true
+    },
+    "message": "User registered and authenticated successfully"
+  },
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+**Error Response (Invalid OTP):**
+```json
+{
+  "success": false,
+  "message": "Invalid or expired OTP",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### Complete SMS Authentication Flow
+
+**Step 1: Request OTP**
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+18777804236"
+  }'
+```
+
+**Step 2: Verify OTP (Replace 123456 with actual OTP received)**
+```bash
+curl -X POST http://localhost:9101/api/users/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+18777804236",
+    "otp": "123456"
+  }'
+```
+
+**Step 3: Use JWT Token for Authenticated Requests**
+```bash
+curl -X POST http://localhost:9101/api/messages/send \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Hello from SMS authentication!",
+    "messageType": "TEXT",
+    "receiverId": 4
+  }'
+```
+
+### Frontend Integration Examples
+
+#### JavaScript/TypeScript
+```javascript
+class AuthService {
+  async sendOtp(phoneNumber) {
+    const response = await fetch('/api/users/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber })
+    });
+    return await response.json();
+  }
+
+  async verifyOtp(phoneNumber, otp) {
+    const response = await fetch('/api/users/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber, otp })
+    });
+    return await response.json();
+  }
+}
+
+// Usage
+const authService = new AuthService();
+
+// Step 1: Send OTP
+await authService.sendOtp('+18777804236');
+
+// Step 2: Verify OTP (after user enters the code)
+const authResponse = await authService.verifyOtp('+18777804236', '123456');
+const token = authResponse.data.accessToken;
+
+// Step 3: Use token for authenticated requests
+localStorage.setItem('authToken', token);
+```
+
+#### Android (Kotlin)
+```kotlin
+class AuthManager {
+    private val apiService = RetrofitClient.getApiService()
+    
+    suspend fun sendOtp(phoneNumber: String): ApiResponse<Void> {
+        return apiService.sendOtp(SendOtpRequest(phoneNumber))
+    }
+    
+    suspend fun verifyOtp(phoneNumber: String, otp: String): ApiResponse<AuthResponse> {
+        return apiService.verifyOtp(VerifyOtpRequest(phoneNumber, otp))
+    }
+    
+    fun saveToken(token: String) {
+        // Store token securely
+        val sharedPref = context.getSharedPreferences("auth", Context.MODE_PRIVATE)
+        sharedPref.edit().putString("token", token).apply()
+    }
+}
+
+// Usage
+val authManager = AuthManager()
+
+// Step 1: Send OTP
+val otpResponse = authManager.sendOtp("+18777804236")
+
+// Step 2: Verify OTP
+val authResponse = authManager.verifyOtp("+18777804236", "123456")
+val token = authResponse.data?.accessToken
+authManager.saveToken(token)
+```
+
+#### iOS (Swift)
+```swift
+class AuthService {
+    private let baseURL = "http://localhost:9101"
+    
+    func sendOtp(phoneNumber: String) async throws -> ApiResponse<Void> {
+        let url = URL(string: "\(baseURL)/api/users/send-otp")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = ["phoneNumber": phoneNumber]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(ApiResponse<Void>.self, from: data)
+    }
+    
+    func verifyOtp(phoneNumber: String, otp: String) async throws -> ApiResponse<AuthResponse> {
+        let url = URL(string: "\(baseURL)/api/users/verify-otp")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = ["phoneNumber": phoneNumber, "otp": otp]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(ApiResponse<AuthResponse>.self, from: data)
+    }
+}
+
+// Usage
+let authService = AuthService()
+
+// Step 1: Send OTP
+try await authService.sendOtp(phoneNumber: "+18777804236")
+
+// Step 2: Verify OTP
+let response = try await authService.verifyOtp(phoneNumber: "+18777804236", otp: "123456")
+let token = response.data.accessToken
+
+// Step 3: Store token securely
+UserDefaults.standard.set(token, forKey: "authToken")
+```
+
+---
+
+### Firebase Token Authentication (Legacy)
 ```bash
 curl -X POST http://localhost:9101/api/users/authenticate \
   -H "Content-Type: application/json" \
@@ -178,7 +434,82 @@ curl -X POST http://localhost:9101/api/users/login \
 
 ## Complete Authentication Flow
 
-### Step-by-Step Example
+### SMS-Based Authentication (Recommended)
+
+#### Step-by-Step Example
+
+#### 1. Request OTP
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+18777804236"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully",
+  "data": null,
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### 2. Verify OTP and Get JWT Token
+```bash
+curl -X POST http://localhost:9101/api/users/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+18777804236",
+    "otp": "123456"
+  }'
+```
+
+**Response (Existing User):**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": { /* user details */ },
+    "message": "Login successful"
+  }
+}
+```
+
+**Response (New User):**
+```json
+{
+  "success": true,
+  "message": "User registered and authenticated successfully",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": { /* user details */ },
+    "message": "User registered and authenticated successfully"
+  }
+}
+```
+
+#### 3. Use JWT Token for Authenticated Requests
+```bash
+curl -X POST http://localhost:9101/api/messages/send \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Hello from SMS authentication!",
+    "messageType": "TEXT",
+    "receiverId": 4
+  }'
+```
+
+### Firebase Token Authentication (Legacy)
 
 #### 1. Frontend: Authenticate with Firebase
 ```javascript
@@ -1092,12 +1423,17 @@ API endpoints are rate-limited to prevent abuse:
 
 | Endpoint Type | Limit | Window |
 |---------------|-------|--------|
+| SMS OTP Sending | 5 requests | 1 minute |
+| SMS OTP Verification | 10 requests | 1 minute |
 | Firebase Authentication | 10 requests | 1 minute |
 | Messaging | 100 requests | 1 minute |
 | Media Upload | 10 requests | 1 minute |
 | Other APIs | 60 requests | 1 minute |
 
-**Note:** Firebase handles OTP rate limiting on their end, so the backend only limits the token verification requests.
+**Notes:** 
+- SMS OTP endpoints have stricter rate limits to prevent abuse and reduce SMS costs
+- OTP codes expire after 5 minutes for security
+- Firebase handles OTP rate limiting on their end for legacy authentication
 
 ## Security Best Practices
 
@@ -1142,20 +1478,39 @@ For issues and support:
 
 ## Authentication Flow Changes
 
-**Important Update:** The authentication flow has been updated to use Firebase token-based authentication instead of OTP verification. 
+**Important Update:** The authentication flow has been updated to support both SMS-based authentication (primary) and Firebase token-based authentication (legacy). 
 
-### What Changed:
-- ✅ **Removed:** `/api/users/send-otp` endpoint
-- ✅ **Updated:** `/api/users/authenticate` now accepts Firebase ID tokens
-- ✅ **Frontend:** Now handles OTP verification directly with Firebase
-- ✅ **Backend:** Verifies Firebase tokens and extracts user information
+### What's New:
+- ✅ **Added:** `/api/users/send-otp` endpoint for SMS OTP sending
+- ✅ **Added:** `/api/users/verify-otp` endpoint for SMS OTP verification
+- ✅ **Integrated:** Twilio SMS service for OTP delivery
+- ✅ **Enhanced:** Redis-based OTP storage with 5-minute expiration
+- ✅ **Maintained:** Firebase token authentication for backward compatibility
+
+### SMS Authentication Benefits:
+1. **No Frontend Dependencies:** No need for Firebase SDK integration
+2. **Simpler Implementation:** Direct API calls for OTP send/verify
+3. **Better Control:** Custom OTP generation and validation
+4. **Cost Effective:** Twilio provides competitive SMS rates
+5. **Reliable Delivery:** Twilio's global SMS infrastructure
 
 ### Migration Guide:
-1. **Frontend:** Integrate Firebase Authentication SDK
-2. **Authentication:** Use Firebase's `signInWithPhoneNumber()` method
-3. **Backend:** Send Firebase ID token to `/api/users/authenticate`
-4. **Security:** Firebase handles OTP rate limiting and security
+1. **New Projects:** Use SMS-based authentication (`/api/users/send-otp` → `/api/users/verify-otp`)
+2. **Existing Projects:** Continue using Firebase authentication or migrate to SMS
+3. **Frontend:** Implement simple HTTP calls for OTP flow
+4. **Security:** OTP codes expire in 5 minutes, rate-limited to prevent abuse
+
+### Configuration Required:
+```yaml
+twilio:
+  account:
+    sid: YOUR_TWILIO_ACCOUNT_SID
+  auth:
+    token: YOUR_TWILIO_AUTH_TOKEN
+  phone:
+    number: YOUR_TWILIO_PHONE_NUMBER
+```
 
 ---
 
-*Last updated: September 20, 2024 - Updated for Firebase Token Authentication*
+*Last updated: September 24, 2025 - Added SMS-Based Authentication with Twilio Integration*

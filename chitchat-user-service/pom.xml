@@ -85,11 +85,11 @@
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
-        <!-- Firebase Admin SDK -->
+        <!-- Twilio SDK -->
         <dependency>
-            <groupId>com.google.firebase</groupId>
-            <artifactId>firebase-admin</artifactId>
-            <version>9.2.0</version>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>10.1.0</version>
         </dependency>
 
         <!-- JWT -->

@@ -1,6 +1,5 @@
 package com.chitchat.gateway.filter;
 
-import com.chitchat.gateway.service.FirebaseService;
 import com.chitchat.gateway.service.JwtService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -23,22 +21,21 @@ import java.util.Map;
 
 /**
  * Global authentication filter for API Gateway
- * Handles both Firebase ID tokens and internal JWT tokens
+ * Handles JWT-based authentication for SMS-based login
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuthenticationFilter implements GlobalFilter, Ordered {
 
-    private final FirebaseService firebaseService;
     private final JwtService jwtService;
-    private final WebClient.Builder webClientBuilder;
 
     // Public endpoints that don't require authentication
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+            "/api/users/send-otp",
+            "/api/users/verify-otp",
             "/api/users/register",
             "/api/users/login",
-            "/api/users/verify-otp",
             "/api/users/refresh-token",
             "/actuator/health",
             "/actuator/info",
@@ -110,24 +107,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         return Mono.fromCallable(() -> {
             Map<String, Object> result = new HashMap<>();
 
-            // Try to validate as Firebase ID token first
-            if (firebaseService.isFirebaseAvailable()) {
-                Map<String, Object> firebaseResult = firebaseService.verifyIdToken(token);
-                if ((Boolean) firebaseResult.get("valid")) {
-                    log.debug("Valid Firebase ID token");
-                    result.put("valid", true);
-                    result.put("tokenType", "firebase");
-                    result.put("uid", firebaseResult.get("uid"));
-                    result.put("phoneNumber", firebaseResult.get("phoneNumber"));
-                    result.put("email", firebaseResult.get("email"));
-                    result.put("name", firebaseResult.get("name"));
-                    return result;
-                }
-            }
-
-            // Try to validate as internal JWT token
+            // Validate as internal JWT token
             if (jwtService.validateToken(token)) {
-                log.debug("Valid internal JWT token");
+                log.debug("Valid JWT token");
                 result.put("valid", true);
                 result.put("tokenType", "jwt");
                 result.put("userId", jwtService.extractUserId(token));
@@ -137,7 +119,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             }
 
             result.put("valid", false);
-            result.put("error", "Invalid token");
+            result.put("error", "Invalid JWT token");
             return result;
         });
     }
@@ -146,25 +128,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest.Builder builder = request.mutate();
 
         // Add user information as headers for downstream services
-        if ("firebase".equals(userInfo.get("tokenType"))) {
-            builder.header("X-User-UID", (String) userInfo.get("uid"));
-            builder.header("X-User-Phone", (String) userInfo.get("phoneNumber"));
-            builder.header("X-User-Email", (String) userInfo.get("email"));
-            builder.header("X-User-Name", (String) userInfo.get("name"));
-            builder.header("X-Token-Type", "firebase");
-            
-            // For Firebase tokens, we need to look up the user ID from the user service
-            // This is a simplified approach - in production, you'd call the user service
-            String phoneNumber = (String) userInfo.get("phoneNumber");
-            if (phoneNumber != null) {
-                // For now, we'll use a simple approach to get user ID
-                // In production, this should call the user service to get the actual user ID
-                Long userId = getUserIdByPhoneNumber(phoneNumber);
-                if (userId != null) {
-                    builder.header("X-User-ID", String.valueOf(userId));
-                }
-            }
-        } else if ("jwt".equals(userInfo.get("tokenType"))) {
+        if ("jwt".equals(userInfo.get("tokenType"))) {
             builder.header("X-User-ID", String.valueOf(userInfo.get("userId")));
             builder.header("X-User-Username", (String) userInfo.get("username"));
             builder.header("X-User-Phone", (String) userInfo.get("phoneNumber"));
@@ -190,74 +154,4 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         return -100; // High priority to run before other filters
     }
     
-    /**
-     * Get user ID by phone number
-     * Calls the user service to get the actual user ID using WebClient
-     */
-    private Long getUserIdByPhoneNumber(String phoneNumber) {
-        log.info("Looking up user ID for phone number: {}", phoneNumber);
-        
-        try {
-            // Use WebClient to call user service
-            WebClient webClient = webClientBuilder.build();
-            
-            UserResponse userResponse = webClient
-                .get()
-                .uri("http://chitchat-user-service/api/users/phone/{phoneNumber}", phoneNumber)
-                .retrieve()
-                .bodyToMono(UserResponse.class)
-                .block(); // Blocking call for simplicity in filter
-            
-            if (userResponse != null && userResponse.getId() != null) {
-                log.info("Found user ID {} for phone number: {}", userResponse.getId(), phoneNumber);
-                return userResponse.getId();
-            } else {
-                log.warn("User not found for phone number: {}", phoneNumber);
-                return null; // User not found
-            }
-            
-        } catch (Exception e) {
-            log.error("Error looking up user ID for phone number: {}", phoneNumber, e);
-            return null; // Return null on error
-        }
-    }
-    
-    /**
-     * User response DTO for WebClient
-     */
-    private static class UserResponse {
-        private Long id;
-        private String phoneNumber;
-        private String name;
-        private String avatarUrl;
-        private String about;
-        private String lastSeen;
-        private Boolean isOnline;
-        private String createdAt;
-        
-        // Getters and setters
-        public Long getId() { return id; }
-        public void setId(Long id) { this.id = id; }
-        
-        public String getPhoneNumber() { return phoneNumber; }
-        public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getAvatarUrl() { return avatarUrl; }
-        public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
-        
-        public String getAbout() { return about; }
-        public void setAbout(String about) { this.about = about; }
-        
-        public String getLastSeen() { return lastSeen; }
-        public void setLastSeen(String lastSeen) { this.lastSeen = lastSeen; }
-        
-        public Boolean getIsOnline() { return isOnline; }
-        public void setIsOnline(Boolean isOnline) { this.isOnline = isOnline; }
-        
-        public String getCreatedAt() { return createdAt; }
-        public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
-    }
 }

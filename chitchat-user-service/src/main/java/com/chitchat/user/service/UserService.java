@@ -46,4 +46,11 @@ public interface UserService {
      * @return PhoneNumberCheckResponse with existence status and user details if found
      */
     PhoneNumberCheckResponse checkPhoneNumberExists(String phoneNumber);
+    
+    /**
+     * Authenticate user with phone number (login or register)
+     * @param phoneNumber The phone number
+     * @return AuthResponse with JWT token and user details
+     */
+    AuthResponse authenticateWithPhoneNumber(String phoneNumber);
 }

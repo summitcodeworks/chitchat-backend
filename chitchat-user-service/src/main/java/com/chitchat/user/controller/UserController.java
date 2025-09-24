@@ -3,6 +3,8 @@ package com.chitchat.user.controller;
 import com.chitchat.shared.dto.ApiResponse;
 import com.chitchat.user.dto.*;
 import com.chitchat.user.service.UserService;
+import com.chitchat.user.service.TwilioService;
+import com.chitchat.user.service.OtpService;
 import com.chitchat.user.util.PasswordUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,46 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     
     private final UserService userService;
+    private final TwilioService twilioService;
+    private final OtpService otpService;
+
+    // SMS-based Authentication Endpoints
+    
+    @PostMapping("/send-otp")
+    public ResponseEntity<ApiResponse<Void>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
+        log.info("Send OTP request received for phone: {}", request.getPhoneNumber());
+        
+        // Generate OTP
+        String otp = otpService.generateOtp(request.getPhoneNumber());
+        
+        // Send OTP via SMS
+        boolean smsSent = twilioService.sendOtpSms(request.getPhoneNumber(), otp);
+        
+        if (smsSent) {
+            return ResponseEntity.ok(ApiResponse.success(null, "OTP sent successfully"));
+        } else {
+            return ResponseEntity.internalServerError()
+                .body(ApiResponse.error("Failed to send OTP. Please try again."));
+        }
+    }
+    
+    @PostMapping("/verify-otp")
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        log.info("Verify OTP request received for phone: {}", request.getPhoneNumber());
+        
+        // Verify OTP
+        boolean isValidOtp = otpService.verifyOtp(request.getPhoneNumber(), request.getOtp());
+        
+        if (!isValidOtp) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Invalid or expired OTP"));
+        }
+        
+        // Authenticate user (login or register)
+        AuthResponse response = userService.authenticateWithPhoneNumber(request.getPhoneNumber());
+        
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
 
     @PostMapping("/authenticate")
     public ResponseEntity<ApiResponse<AuthResponse>> authenticateWithFirebase(@Valid @RequestBody FirebaseAuthRequest request) {
