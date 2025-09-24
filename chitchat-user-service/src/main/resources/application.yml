@@ -42,23 +42,26 @@ eureka:
   instance:
     prefer-ip-address: true
 
+# Configuration is now loaded from database via ConfigurationService
+# See database/init-postgres.sql for configuration values
+
 jwt:
-  secret: chitchat-secret-key-for-jwt-token-generation-2024
-  expiration: 86400000
+  secret: ${JWT_SECRET:fallback-secret-key}  # Fallback only
+  expiration: ${JWT_EXPIRATION:3600}  # Fallback only
 
 twilio:
   account:
-    sid: AC2ab597ad50aff6005c95c4024370b5c2
+    sid: ${TWILIO_ACCOUNT_SID:}  # Fallback only
   auth:
-    token: 8869105b7563b5978ae1dd5ac843a473
+    token: ${TWILIO_AUTH_TOKEN:}  # Fallback only
   phone:
-    number: +18587805063  # Your Twilio phone number
+    number: ${TWILIO_PHONE_NUMBER:}  # Fallback only
 
 firebase:
-  project-id: chitchat-9c074
-  web-api-key: AIzaSyBefqzOkJgvV0qnmc4Qds43Gi5XvdmAl7g
-  auth-domain: chitchat-9c074.firebaseapp.com
-  storage-bucket: chitchat-9c074.firebasestorage.app
+  project-id: ${FIREBASE_PROJECT_ID:chitchat-9c074}  # Fallback only
+  web-api-key: ${FIREBASE_WEB_API_KEY:}  # Fallback only
+  auth-domain: ${FIREBASE_AUTH_DOMAIN:chitchat-9c074.firebaseapp.com}  # Fallback only
+  storage-bucket: ${FIREBASE_STORAGE_BUCKET:chitchat-9c074.firebasestorage.app}  # Fallback only
   messaging-sender-id: 508577813087
   app-id: 1:508577813087:web:8768669bde9c08b1f5c1ea
   measurement-id: G-6X3E3LRN8Z

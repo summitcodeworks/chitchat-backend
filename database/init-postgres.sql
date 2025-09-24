@@ -139,6 +139,18 @@ CREATE TABLE IF NOT EXISTS user_actions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create application_config table for storing secrets and configuration
+CREATE TABLE IF NOT EXISTS application_config (
+    id BIGSERIAL PRIMARY KEY,
+    config_key VARCHAR(100) UNIQUE NOT NULL,
+    config_value TEXT NOT NULL,
+    description TEXT,
+    is_encrypted BOOLEAN DEFAULT FALSE,
+    service VARCHAR(50) NOT NULL, -- Which service this config belongs to
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_phone_number ON users(phone_number);
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
@@ -171,10 +183,41 @@ CREATE INDEX IF NOT EXISTS idx_user_actions_user_id ON user_actions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_actions_action ON user_actions(action);
 CREATE INDEX IF NOT EXISTS idx_user_actions_created_at ON user_actions(created_at);
 
+CREATE INDEX IF NOT EXISTS idx_application_config_key ON application_config(config_key);
+CREATE INDEX IF NOT EXISTS idx_application_config_service ON application_config(service);
+
 -- Insert default admin user (password: admin123 - should be changed in production)
 INSERT INTO admin_users (username, email, password, role, is_active) 
 VALUES ('admin', 'admin@chitchat.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'SUPER_ADMIN', true)
 ON CONFLICT (username) DO NOTHING;
+
+-- Insert application configuration (secrets and settings)
+INSERT INTO application_config (config_key, config_value, description, is_encrypted, service) VALUES
+-- JWT Configuration
+('jwt.secret', 'chitchat-secret-key-for-jwt-token-generation-2024', 'JWT signing secret key', true, 'SHARED'),
+('jwt.expiration', '3600', 'JWT token expiration time in seconds', false, 'SHARED'),
+
+-- Twilio Configuration
+('twilio.account.sid', 'AC2ab597ad50aff6005c95c4024370b5c2', 'Twilio Account SID', true, 'USER_SERVICE'),
+('twilio.auth.token', '8869105b7563b5978ae1dd5ac843a473', 'Twilio Auth Token', true, 'USER_SERVICE'),
+('twilio.phone.number', '+18587805063', 'Twilio phone number for sending SMS', false, 'USER_SERVICE'),
+
+-- Firebase Configuration
+('firebase.project.id', 'chitchat-9c074', 'Firebase project ID', false, 'SHARED'),
+('firebase.web.api.key', 'AIzaSyBefqzOkJgvV0qnmc4Qds43Gi5XvdmAl7g', 'Firebase Web API Key', true, 'SHARED'),
+('firebase.auth.domain', 'chitchat-9c074.firebaseapp.com', 'Firebase Auth Domain', false, 'SHARED'),
+('firebase.storage.bucket', 'chitchat-9c074.firebasestorage.app', 'Firebase Storage Bucket', false, 'SHARED'),
+
+-- Database Configuration
+('database.password', '8ivhaah8', 'PostgreSQL database password', true, 'SHARED'),
+
+-- AWS S3 Configuration (if using)
+('aws.access.key', '', 'AWS Access Key for S3', true, 'MEDIA_SERVICE'),
+('aws.secret.key', '', 'AWS Secret Key for S3', true, 'MEDIA_SERVICE'),
+('aws.s3.bucket', '', 'AWS S3 Bucket name', false, 'MEDIA_SERVICE'),
+('aws.s3.region', 'us-east-1', 'AWS S3 Region', false, 'MEDIA_SERVICE')
+
+ON CONFLICT (config_key) DO NOTHING;
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -192,6 +235,7 @@ CREATE TRIGGER update_calls_updated_at BEFORE UPDATE ON calls FOR EACH ROW EXECU
 CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_device_tokens_updated_at BEFORE UPDATE ON device_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON admin_users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_application_config_updated_at BEFORE UPDATE ON application_config FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Grant permissions to summitcodeworks user
 GRANT ALL PRIVILEGES ON DATABASE chitchat TO summitcodeworks;

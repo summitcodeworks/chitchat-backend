@@ -1,12 +1,13 @@
 package com.chitchat.user.service;
 
+import com.chitchat.shared.service.ConfigurationService;
 import com.chitchat.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -20,16 +21,21 @@ import java.util.function.Function;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class JwtService {
     
-    @Value("${jwt.secret:chitchat-secret-key-for-jwt-token-generation-2024}")
-    private String secret;
-    
-    @Value("${jwt.expiration:86400000}") // 24 hours
-    private Long expiration;
+    private final ConfigurationService configurationService;
     
     private SecretKey getSigningKey() {
+        String secret = configurationService.getJwtSecret();
+        if (secret == null) {
+            throw new RuntimeException("JWT secret not configured");
+        }
         return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+    
+    private Long getExpiration() {
+        return configurationService.getJwtExpiration() * 1000; // Convert seconds to milliseconds
     }
     
     public String generateToken(User user) {
@@ -44,7 +50,7 @@ public class JwtService {
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .setExpiration(new Date(System.currentTimeMillis() + getExpiration()))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }

@@ -1,11 +1,12 @@
 package com.chitchat.user.service.impl;
 
+import com.chitchat.shared.service.ConfigurationService;
 import com.chitchat.user.service.TwilioService;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -15,27 +16,34 @@ import javax.annotation.PostConstruct;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TwilioServiceImpl implements TwilioService {
 
-    @Value("${twilio.account.sid}")
-    private String accountSid;
-
-    @Value("${twilio.auth.token}")
-    private String authToken;
-
-    @Value("${twilio.phone.number}")
-    private String twilioPhoneNumber;
+    private final ConfigurationService configurationService;
 
     @PostConstruct
     public void init() {
-        Twilio.init(accountSid, authToken);
-        log.info("Twilio service initialized with account SID: {}", accountSid);
+        String accountSid = configurationService.getTwilioAccountSid();
+        String authToken = configurationService.getTwilioAuthToken();
+        
+        if (accountSid != null && authToken != null) {
+            Twilio.init(accountSid, authToken);
+            log.info("Twilio service initialized with account SID: {}", accountSid);
+        } else {
+            log.error("Twilio credentials not found in configuration. SMS service will not work.");
+        }
     }
 
     @Override
     public boolean sendOtpSms(String phoneNumber, String otp) {
         try {
             log.info("Sending OTP SMS to phone number: {}", phoneNumber);
+            
+            String twilioPhoneNumber = configurationService.getTwilioPhoneNumber();
+            if (twilioPhoneNumber == null) {
+                log.error("Twilio phone number not configured");
+                return false;
+            }
             
             String messageBody = String.format("Your ChitChat verification code is: %s. This code will expire in 5 minutes.", otp);
             
@@ -59,6 +67,12 @@ public class TwilioServiceImpl implements TwilioService {
         try {
             log.info("Sending welcome SMS to phone number: {}", phoneNumber);
             
+            String twilioPhoneNumber = configurationService.getTwilioPhoneNumber();
+            if (twilioPhoneNumber == null) {
+                log.error("Twilio phone number not configured");
+                return false;
+            }
+            
             String messageBody = String.format("Welcome to ChitChat, %s! Your account has been created successfully. Start chatting with your friends!", userName);
             
             Message message = Message.creator(
@@ -80,6 +94,12 @@ public class TwilioServiceImpl implements TwilioService {
     public boolean sendNotificationSms(String phoneNumber, String message) {
         try {
             log.info("Sending notification SMS to phone number: {}", phoneNumber);
+            
+            String twilioPhoneNumber = configurationService.getTwilioPhoneNumber();
+            if (twilioPhoneNumber == null) {
+                log.error("Twilio phone number not configured");
+                return false;
+            }
             
             Message twilioMessage = Message.creator(
                 new PhoneNumber(phoneNumber),
