@@ -60,6 +60,8 @@ curl -X POST http://localhost:9101/api/users/send-otp \
   }'
 ```
 
+**Note:** This endpoint does NOT require authentication. If you get a 401 error, check that the API Gateway security configuration includes `/api/users/send-otp` in the public endpoints list.
+
 **Required Fields:**
 - `phoneNumber`: String (Phone number in international format, e.g., +1234567890)
 
@@ -703,6 +705,145 @@ curl -X PUT http://localhost:9101/api/users/profile \
 **Optional Fields:**
 - `avatarUrl`: String (Profile picture URL)
 - `about`: String (User bio/about text)
+
+### Update Device Token
+```bash
+curl -X PUT http://localhost:9101/api/users/device-token \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deviceToken": "fcm_device_token_here"
+  }'
+```
+
+**Required Fields:**
+- `deviceToken`: String (FCM device token for push notifications)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Device token updated successfully",
+  "data": {
+    "id": 1,
+    "phoneNumber": "+1234567890",
+    "name": "John Doe",
+    "avatarUrl": null,
+    "about": null,
+    "lastSeen": "2025-09-24T06:13:54.159093",
+    "isOnline": true
+  },
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+**Error Responses:**
+
+#### 400 Bad Request - Missing Device Token
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "deviceToken",
+      "message": "Device token is required"
+    }
+  ],
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### 401 Unauthorized - Invalid Token
+```json
+{
+  "success": false,
+  "message": "Invalid or expired token",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### 404 Not Found - User Not Found
+```json
+{
+  "success": false,
+  "message": "User not found",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "success": false,
+  "message": "Internal server error",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+**Frontend Integration Examples:**
+
+#### JavaScript/TypeScript
+```javascript
+class DeviceTokenService {
+  async updateDeviceToken(deviceToken) {
+    const response = await fetch('/api/users/device-token', {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify({ deviceToken })
+    });
+    return await response.json();
+  }
+}
+
+// Usage
+const deviceTokenService = new DeviceTokenService();
+await deviceTokenService.updateDeviceToken('fcm_device_token_here');
+```
+
+#### Android (Kotlin)
+```kotlin
+class DeviceTokenManager {
+    private val apiService = RetrofitClient.getApiService()
+    
+    suspend fun updateDeviceToken(deviceToken: String): ApiResponse<UserResponse> {
+        val request = DeviceTokenUpdateRequest(deviceToken)
+        return apiService.updateDeviceToken(request)
+    }
+}
+
+// Usage
+val deviceTokenManager = DeviceTokenManager()
+deviceTokenManager.updateDeviceToken("fcm_device_token_here")
+```
+
+#### iOS (Swift)
+```swift
+class DeviceTokenService {
+    private let baseURL = "http://localhost:9101"
+    
+    func updateDeviceToken(_ deviceToken: String) async throws -> ApiResponse<UserResponse> {
+        let url = URL(string: "\(baseURL)/api/users/device-token")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        
+        let body = ["deviceToken": deviceToken]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(ApiResponse<UserResponse>.self, from: data)
+    }
+}
+
+// Usage
+let deviceTokenService = DeviceTokenService()
+try await deviceTokenService.updateDeviceToken("fcm_device_token_here")
+```
 
 ### Sync Contacts
 ```bash

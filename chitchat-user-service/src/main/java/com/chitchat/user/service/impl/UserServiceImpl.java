@@ -398,6 +398,20 @@ public class UserServiceImpl implements UserService {
         return userRepository.save(user);
     }
     
+    @Override
+    @Transactional
+    public UserResponse updateDeviceToken(Long userId, DeviceTokenUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ChitChatException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+        
+        user.setDeviceToken(request.getDeviceToken());
+        user = userRepository.save(user);
+        
+        log.info("Device token updated for user ID: {}", userId);
+        
+        return mapToUserResponse(user);
+    }
+    
     /**
      * Update user's last login information
      */

@@ -103,6 +103,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response, "Profile updated successfully"));
     }
     
+    @PutMapping("/device-token")
+    public ResponseEntity<ApiResponse<UserResponse>> updateDeviceToken(
+            @RequestHeader("Authorization") String token,
+            @Valid @RequestBody DeviceTokenUpdateRequest request) {
+        Long userId = extractUserIdFromToken(token);
+        UserResponse response = userService.updateDeviceToken(userId, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Device token updated successfully"));
+    }
+    
     @PostMapping("/contacts/sync")
     public ResponseEntity<ApiResponse<java.util.List<UserResponse>>> syncContacts(
             @RequestHeader("Authorization") String token,

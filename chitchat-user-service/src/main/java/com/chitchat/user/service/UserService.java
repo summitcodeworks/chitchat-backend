@@ -53,4 +53,12 @@ public interface UserService {
      * @return AuthResponse with JWT token and user details
      */
     AuthResponse authenticateWithPhoneNumber(String phoneNumber);
+    
+    /**
+     * Update device token for push notifications
+     * @param userId The user ID
+     * @param request The device token update request
+     * @return UserResponse with updated user details
+     */
+    UserResponse updateDeviceToken(Long userId, DeviceTokenUpdateRequest request);
 }

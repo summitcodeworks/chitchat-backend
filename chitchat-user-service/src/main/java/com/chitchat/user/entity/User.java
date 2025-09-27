@@ -49,6 +49,9 @@ public class User {
     @Column(name = "firebase_uid")
     private String firebaseUid;
     
+    @Column(name = "device_token")
+    private String deviceToken;
+    
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
