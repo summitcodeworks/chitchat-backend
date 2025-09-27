@@ -51,6 +51,8 @@ All API responses follow this structure:
 
 ### SMS-Based Authentication (Primary Method)
 
+The SMS-based authentication system uses Twilio for reliable SMS delivery and Redis for secure OTP storage. This provides a robust, scalable authentication solution without requiring frontend Firebase SDK integration.
+
 #### Send OTP
 ```bash
 curl -X POST http://localhost:9101/api/users/send-otp \
@@ -65,6 +67,12 @@ curl -X POST http://localhost:9101/api/users/send-otp \
 **Required Fields:**
 - `phoneNumber`: String (Phone number in international format, e.g., +1234567890)
 
+**How it works:**
+1. **OTP Generation**: System generates a secure 6-digit OTP using `SecureRandom`
+2. **Redis Storage**: OTP is stored in Redis with 5-minute expiration for security
+3. **Twilio SMS**: OTP is sent via Twilio SMS service with custom message template
+4. **Rate Limiting**: Endpoint is rate-limited to prevent abuse (5 requests per minute)
+
 **Response:**
 ```json
 {
@@ -76,11 +84,31 @@ curl -X POST http://localhost:9101/api/users/send-otp \
 }
 ```
 
-**Error Response:**
+**Error Responses:**
+
+*SMS Delivery Failed:*
 ```json
 {
   "success": false,
   "message": "Failed to send OTP. Please try again.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+*Rate Limit Exceeded:*
+```json
+{
+  "success": false,
+  "message": "Too many OTP requests. Please wait before trying again.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+*Invalid Phone Number:*
+```json
+{
+  "success": false,
+  "message": "Phone number must be in international format (e.g., +1234567890)",
   "timestamp": "2025-09-24T06:13:54.159093"
 }
 ```
@@ -98,6 +126,13 @@ curl -X POST http://localhost:9101/api/users/verify-otp \
 **Required Fields:**
 - `phoneNumber`: String (Same phone number used in send-otp)
 - `otp`: String (6-digit OTP code received via SMS)
+
+**How it works:**
+1. **OTP Verification**: System retrieves stored OTP from Redis and compares with provided OTP
+2. **Security Check**: OTP is automatically cleared after successful verification to prevent reuse
+3. **User Authentication**: If OTP is valid, system authenticates user (login) or creates new user (registration)
+4. **JWT Generation**: System generates JWT token with 1-hour expiration
+5. **Welcome SMS**: New users receive welcome SMS via Twilio
 
 **Response for Existing User (Login):**
 ```json
@@ -147,11 +182,31 @@ curl -X POST http://localhost:9101/api/users/verify-otp \
 }
 ```
 
-**Error Response (Invalid OTP):**
+**Error Responses:**
+
+*Invalid or Expired OTP:*
 ```json
 {
   "success": false,
   "message": "Invalid or expired OTP",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+*OTP Not Found:*
+```json
+{
+  "success": false,
+  "message": "No OTP found for this phone number. Please request a new OTP.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+*Rate Limit Exceeded:*
+```json
+{
+  "success": false,
+  "message": "Too many verification attempts. Please wait before trying again.",
   "timestamp": "2025-09-24T06:13:54.159093"
 }
 ```
@@ -1560,20 +1615,41 @@ export class WebSocketService {
 
 ## Rate Limiting
 
-API endpoints are rate-limited to prevent abuse:
+API endpoints are rate-limited to prevent abuse and ensure fair usage:
 
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| SMS OTP Sending | 5 requests | 1 minute |
-| SMS OTP Verification | 10 requests | 1 minute |
-| Firebase Authentication | 10 requests | 1 minute |
-| Messaging | 100 requests | 1 minute |
-| Media Upload | 10 requests | 1 minute |
-| Other APIs | 60 requests | 1 minute |
+| Endpoint Type | Limit | Window | Reason |
+|---------------|-------|--------|--------|
+| SMS OTP Sending | 5 requests | 1 minute | Prevent SMS spam and reduce costs |
+| SMS OTP Verification | 10 requests | 1 minute | Prevent brute force attacks |
+| Firebase Authentication | 10 requests | 1 minute | Prevent abuse of Firebase tokens |
+| Messaging | 100 requests | 1 minute | Allow normal chat usage |
+| Media Upload | 10 requests | 1 minute | Prevent storage abuse |
+| Other APIs | 60 requests | 1 minute | General API protection |
+
+### SMS Rate Limiting Details
+
+**OTP Sending (`/api/users/send-otp`):**
+- **Limit**: 5 requests per minute per IP address
+- **Purpose**: Prevent SMS spam and reduce Twilio costs
+- **Implementation**: Redis-based rate limiting with sliding window
+- **Error Response**: `429 Too Many Requests` with retry-after header
+
+**OTP Verification (`/api/users/verify-otp`):**
+- **Limit**: 10 requests per minute per phone number
+- **Purpose**: Prevent brute force OTP attacks
+- **Implementation**: Phone number-based rate limiting
+- **Security**: OTP is cleared after successful verification
+
+**Redis OTP Storage:**
+- **Expiration**: 5 minutes (300 seconds)
+- **Key Format**: `otp:{phoneNumber}`
+- **Security**: OTP is automatically cleared after verification
+- **Storage**: Redis with TTL for automatic cleanup
 
 **Notes:** 
 - SMS OTP endpoints have stricter rate limits to prevent abuse and reduce SMS costs
 - OTP codes expire after 5 minutes for security
+- Rate limiting is implemented using Redis for distributed systems
 - Firebase handles OTP rate limiting on their end for legacy authentication
 
 ## Security Best Practices
@@ -1642,14 +1718,181 @@ For issues and support:
 4. **Security:** OTP codes expire in 5 minutes, rate-limited to prevent abuse
 
 ### Configuration Required:
+
+The Twilio SMS service is configured through the database-driven configuration system. All settings are stored securely in the `application_config` table.
+
+
+#### Environment Variables (Fallback)
 ```yaml
+# application.yml fallback configuration
 twilio:
   account:
-    sid: YOUR_TWILIO_ACCOUNT_SID
+    sid: ${TWILIO_ACCOUNT_SID:}  # Fallback only
   auth:
-    token: YOUR_TWILIO_AUTH_TOKEN
+    token: ${TWILIO_AUTH_TOKEN:}  # Fallback only
   phone:
-    number: YOUR_TWILIO_PHONE_NUMBER
+    number: ${TWILIO_PHONE_NUMBER:}  # Fallback only
+```
+
+#### Twilio Service Features
+
+**SMS Services Available:**
+1. **OTP SMS**: Sends verification codes with custom message template
+2. **Welcome SMS**: Sends welcome message to new users
+3. **Notification SMS**: Sends general notifications
+
+**Message Templates:**
+- **OTP Message**: "Your ChitChat verification code is: {OTP}. This code will expire in 5 minutes."
+- **Welcome Message**: "Welcome to ChitChat, {USER_NAME}! Your account has been created successfully. Start chatting with your friends!"
+
+**Security Features:**
+- All credentials are encrypted in database
+- SMS delivery tracking with Twilio Message SID
+- Automatic error handling and logging
+- Rate limiting to prevent abuse
+
+---
+
+## OTP and Twilio Implementation Details
+
+### OTP Service Architecture
+
+The OTP system is built using a secure, scalable architecture:
+
+**Components:**
+- **OtpService**: Interface for OTP operations
+- **OtpServiceImpl**: Redis-based implementation with SecureRandom
+- **TwilioService**: SMS delivery service
+- **TwilioServiceImpl**: Twilio API integration
+
+**OTP Generation Process:**
+```java
+// Secure 6-digit OTP generation
+String otp = String.format("%06d", secureRandom.nextInt(1000000));
+
+// Redis storage with 5-minute TTL
+String key = "otp:" + phoneNumber;
+redisTemplate.opsForValue().set(key, otp, Duration.ofMinutes(5));
+```
+
+**OTP Verification Process:**
+```java
+// Retrieve and verify OTP
+String storedOtp = redisTemplate.opsForValue().get("otp:" + phoneNumber);
+boolean isValid = storedOtp != null && storedOtp.equals(providedOtp);
+
+// Clear OTP after successful verification
+if (isValid) {
+    redisTemplate.delete("otp:" + phoneNumber);
+}
+```
+
+### Twilio SMS Service
+
+**Service Implementation:**
+- **TwilioService**: Interface for SMS operations
+- **TwilioServiceImpl**: Twilio REST API integration
+- **ConfigurationService**: Database-driven configuration management
+
+**SMS Message Templates:**
+
+1. **OTP SMS Template:**
+```
+Your ChitChat verification code is: {OTP}. This code will expire in 5 minutes.
+```
+
+2. **Welcome SMS Template:**
+```
+Welcome to ChitChat, {USER_NAME}! Your account has been created successfully. Start chatting with your friends!
+```
+
+3. **Notification SMS Template:**
+```
+{NOTIFICATION_MESSAGE}
+```
+
+**Twilio Integration Features:**
+- **Message Tracking**: Each SMS gets a unique Twilio Message SID
+- **Error Handling**: Comprehensive error handling with logging
+- **Delivery Confirmation**: Twilio provides delivery status
+- **Cost Optimization**: Rate limiting to prevent unnecessary SMS costs
+
+### Redis Configuration
+
+**OTP Storage Configuration:**
+```yaml
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000ms
+```
+
+**Key Naming Convention:**
+- **OTP Keys**: `otp:{phoneNumber}` (e.g., `otp:+1234567890`)
+- **Rate Limiting Keys**: `rate_limit:{endpoint}:{identifier}`
+- **TTL**: 5 minutes for OTP, 1 minute for rate limiting
+
+### Security Features
+
+**OTP Security:**
+- **SecureRandom**: Cryptographically secure random number generation
+- **Time-based Expiration**: 5-minute automatic expiration
+- **Single Use**: OTP is cleared after successful verification
+- **Rate Limiting**: Prevents brute force attacks
+
+**Twilio Security:**
+- **Encrypted Credentials**: All Twilio credentials encrypted in database
+- **Message Validation**: Phone number format validation
+- **Error Logging**: Comprehensive logging without exposing sensitive data
+- **Delivery Tracking**: Message SID tracking for audit trails
+
+### Error Handling
+
+**Common Error Scenarios:**
+
+1. **Twilio Service Unavailable:**
+```json
+{
+  "success": false,
+  "message": "SMS service temporarily unavailable. Please try again later.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+2. **Invalid Phone Number:**
+```json
+{
+  "success": false,
+  "message": "Invalid phone number format. Please use international format (+1234567890).",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+3. **Redis Connection Failed:**
+```json
+{
+  "success": false,
+  "message": "OTP service temporarily unavailable. Please try again later.",
+  "timestamp": "2025-09-24T06:13:54.159093"
+}
+```
+
+### Monitoring and Logging
+
+**Key Metrics to Monitor:**
+- **OTP Generation Rate**: Track OTP requests per minute
+- **SMS Delivery Success Rate**: Monitor Twilio delivery success
+- **OTP Verification Success Rate**: Track successful verifications
+- **Rate Limit Hits**: Monitor rate limiting effectiveness
+
+**Log Messages:**
+```
+INFO  - OTP generated and stored for phone number: +1234567890
+INFO  - OTP SMS sent successfully. Message SID: SM1234567890abcdef
+INFO  - OTP verification successful for phone number: +1234567890
+WARN  - OTP verification failed for phone number: +1234567890
+ERROR - Failed to send OTP SMS to phone number: +1234567890
 ```
 
 ---

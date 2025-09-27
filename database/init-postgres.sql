@@ -191,34 +191,6 @@ INSERT INTO admin_users (username, email, password, role, is_active)
 VALUES ('admin', 'admin@chitchat.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'SUPER_ADMIN', true)
 ON CONFLICT (username) DO NOTHING;
 
--- Insert application configuration (secrets and settings)
-INSERT INTO application_config (config_key, config_value, description, is_encrypted, service) VALUES
--- JWT Configuration
-('jwt.secret', 'chitchat-secret-key-for-jwt-token-generation-2024', 'JWT signing secret key', true, 'SHARED'),
-('jwt.expiration', '3600', 'JWT token expiration time in seconds', false, 'SHARED'),
-
--- Twilio Configuration
-('twilio.account.sid', 'AC2ab597ad50aff6005c95c4024370b5c2', 'Twilio Account SID', true, 'USER_SERVICE'),
-('twilio.auth.token', '8869105b7563b5978ae1dd5ac843a473', 'Twilio Auth Token', true, 'USER_SERVICE'),
-('twilio.phone.number', '+18587805063', 'Twilio phone number for sending SMS', false, 'USER_SERVICE'),
-
--- Firebase Configuration
-('firebase.project.id', 'chitchat-9c074', 'Firebase project ID', false, 'SHARED'),
-('firebase.web.api.key', 'AIzaSyBefqzOkJgvV0qnmc4Qds43Gi5XvdmAl7g', 'Firebase Web API Key', true, 'SHARED'),
-('firebase.auth.domain', 'chitchat-9c074.firebaseapp.com', 'Firebase Auth Domain', false, 'SHARED'),
-('firebase.storage.bucket', 'chitchat-9c074.firebasestorage.app', 'Firebase Storage Bucket', false, 'SHARED'),
-
--- Database Configuration
-('database.password', '8ivhaah8', 'PostgreSQL database password', true, 'SHARED'),
-
--- AWS S3 Configuration (if using)
-('aws.access.key', '', 'AWS Access Key for S3', true, 'MEDIA_SERVICE'),
-('aws.secret.key', '', 'AWS Secret Key for S3', true, 'MEDIA_SERVICE'),
-('aws.s3.bucket', '', 'AWS S3 Bucket name', false, 'MEDIA_SERVICE'),
-('aws.s3.region', 'us-east-1', 'AWS S3 Region', false, 'MEDIA_SERVICE')
-
-ON CONFLICT (config_key) DO NOTHING;
-
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
