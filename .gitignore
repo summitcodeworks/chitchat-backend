@@ -217,3 +217,11 @@ media/
 files/
 backup/
 
+# Claude AI
+.claude/
+
+# Cursor AI
+.cursor/
+.cursorignore
+.cursorrules
+

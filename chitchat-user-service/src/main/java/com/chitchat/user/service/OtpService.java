@@ -32,4 +32,11 @@ public interface OtpService {
      * @param phoneNumber The phone number
      */
     void clearOtp(String phoneNumber);
+
+    /**
+     * Get OTP for the given phone number (for testing purposes)
+     * @param phoneNumber The phone number
+     * @return The stored OTP or null if not found
+     */
+    String getOtpForTesting(String phoneNumber);
 }

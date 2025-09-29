@@ -19,31 +19,31 @@ spring:
           enabled: false
       routes:
         - id: user-service
-          uri: lb://chitchat-user-service
+          uri: lb://CHITCHAT-USER-SERVICE
           predicates:
             - Path=/api/users/**
         - id: messaging-service
-          uri: lb://chitchat-messaging-service
+          uri: lb://CHITCHAT-MESSAGING-SERVICE
           predicates:
             - Path=/api/messages/**
         - id: media-service
-          uri: lb://chitchat-media-service
+          uri: lb://CHITCHAT-MEDIA-SERVICE
           predicates:
             - Path=/api/media/**
         - id: calls-service
-          uri: lb://chitchat-calls-service
+          uri: lb://CHITCHAT-CALLS-SERVICE
           predicates:
             - Path=/api/calls/**
         - id: notification-service
-          uri: lb://chitchat-notification-service
+          uri: lb://CHITCHAT-NOTIFICATION-SERVICE
           predicates:
             - Path=/api/notifications/**
         - id: status-service
-          uri: lb://chitchat-status-service
+          uri: lb://CHITCHAT-STATUS-SERVICE
           predicates:
             - Path=/api/status/**
         - id: admin-service
-          uri: lb://chitchat-admin-service
+          uri: lb://CHITCHAT-ADMIN-SERVICE
           predicates:
             - Path=/api/admin/**
       globalcors:
@@ -67,8 +67,8 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  secret: chitchat-secret-key-for-jwt-token-generation-2024
-  expiration: 86400000
+  secret: 3703ea2161827e52832c162790d1a511e2a7aa22120c34f6d620e703d876697b
+  expiration: 3600
 
 firebase:
   project-id: chitchat-9c074

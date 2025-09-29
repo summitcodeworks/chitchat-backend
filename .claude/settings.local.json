@@ -23,7 +23,14 @@
       "Bash(echo:*)",
       "Bash(chmod:*)",
       "Bash(./run-dev.sh:*)",
-      "Bash(./setup-database.sh:*)"
+      "Bash(./setup-database.sh:*)",
+      "Bash(netstat:*)",
+      "Bash(lsof:*)",
+      "Bash(redis-server:*)",
+      "Bash(redis-cli:*)",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD=8ivhaah8 psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c \"SELECT config_key, config_value FROM application_config WHERE config_key LIKE ''twilio%'';\")",
+      "Bash(PGPASSWORD=8ivhaah8 psql:*)"
     ],
     "deny": [],
     "ask": []

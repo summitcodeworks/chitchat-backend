@@ -77,4 +77,11 @@ public class OtpServiceImpl implements OtpService {
         String key = OTP_PREFIX + phoneNumber;
         redisTemplate.delete(key);
     }
+
+    @Override
+    public String getOtpForTesting(String phoneNumber) {
+        log.info("Retrieving OTP for testing for phone number: {}", phoneNumber);
+        String key = OTP_PREFIX + phoneNumber;
+        return redisTemplate.opsForValue().get(key);
+    }
 }

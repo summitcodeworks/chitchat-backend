@@ -1,6 +1,7 @@
 package com.chitchat.user.service;
 
 import com.chitchat.shared.service.ConfigurationService;
+import com.chitchat.user.entity.JwtToken;
 import com.chitchat.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -11,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +28,7 @@ import java.util.function.Function;
 public class JwtService {
     
     private final ConfigurationService configurationService;
+    private final JwtTokenService jwtTokenService;
     
     private SecretKey getSigningKey() {
         String secret = configurationService.getJwtSecret();
@@ -42,7 +46,24 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("phoneNumber", user.getPhoneNumber());
-        return createToken(claims, user.getPhoneNumber());
+        
+        // Generate the JWT token
+        String token = createToken(claims, user.getPhoneNumber());
+        
+        // Calculate expiration times
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusSeconds(configurationService.getJwtExpiration());
+        
+        // Save token to database
+        try {
+            jwtTokenService.saveToken(token, user, now, expiresAt);
+            log.info("Generated and saved JWT token for user: {}", user.getPhoneNumber());
+        } catch (Exception e) {
+            log.error("Failed to save JWT token to database: {}", e.getMessage());
+            // Continue without database storage for now
+        }
+        
+        return token;
     }
     
     private String createToken(Map<String, Object> claims, String subject) {
@@ -56,8 +77,27 @@ public class JwtService {
     }
     
     public Boolean validateToken(String token, String phoneNumber) {
-        final String username = extractUsername(token);
-        return (username.equals(phoneNumber) && !isTokenExpired(token));
+        try {
+            // First check if token exists in database and is valid
+            boolean dbValid = jwtTokenService.validateToken(token);
+            if (!dbValid) {
+                log.warn("Token not found in database or is invalid for user: {}", phoneNumber);
+                return false;
+            }
+            
+            // Then validate JWT structure and expiration
+            final String username = extractUsername(token);
+            boolean isValid = (username.equals(phoneNumber) && !isTokenExpired(token));
+            
+            if (!isValid) {
+                log.warn("Token validation failed for user: {}", phoneNumber);
+            }
+            
+            return isValid;
+        } catch (Exception e) {
+            log.error("Error validating token: {}", e.getMessage());
+            return false;
+        }
     }
     
     public String extractUsername(String token) {
