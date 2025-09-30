@@ -30,7 +30,11 @@
       "Bash(redis-cli:*)",
       "Bash(psql:*)",
       "Bash(PGPASSWORD=8ivhaah8 psql -h ec2-65-1-185-194.ap-south-1.compute.amazonaws.com -p 5432 -U summitcodeworks -d chitchat -c \"SELECT config_key, config_value FROM application_config WHERE config_key LIKE ''twilio%'';\")",
-      "Bash(PGPASSWORD=8ivhaah8 psql:*)"
+      "Bash(PGPASSWORD=8ivhaah8 psql:*)",
+      "Bash('http://localhost:9102/api/users/device-token' )",
+      "Bash('http://192.168.0.152:9101/api/users/device-token' )",
+      "Bash(find:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

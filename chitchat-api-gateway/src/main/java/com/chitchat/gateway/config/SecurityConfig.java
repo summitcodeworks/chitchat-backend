@@ -29,11 +29,7 @@ public class SecurityConfig {
 
             // Configure authorization - let our custom filter handle authentication
             .authorizeExchange(exchanges -> exchanges
-                // Public endpoints
-                .pathMatchers("/api/users/send-otp", "/api/users/verify-otp", "/api/users/authenticate", "/api/users/register", "/api/users/login", "/api/users/refresh-token").permitAll()
-                .pathMatchers("/actuator/**").permitAll()
-                // All other endpoints require authentication
-                .pathMatchers("/api/**", "/ws/**").authenticated()
+                // Allow all exchanges - our custom AuthenticationFilter will handle authentication
                 .anyExchange().permitAll()
             )
 

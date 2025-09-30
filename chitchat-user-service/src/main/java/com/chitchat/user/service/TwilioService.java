@@ -28,4 +28,12 @@ public interface TwilioService {
      * @return true if SMS sent successfully, false otherwise
      */
     boolean sendNotificationSms(String phoneNumber, String message);
+    
+    /**
+     * Send OTP via WhatsApp
+     * @param phoneNumber The phone number to send OTP to
+     * @param otp The OTP code to send
+     * @return true if WhatsApp message sent successfully, false otherwise
+     */
+    boolean sendOtpWhatsApp(String phoneNumber, String otp);
 }

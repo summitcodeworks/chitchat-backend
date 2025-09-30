@@ -45,15 +45,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
 
         try {
+            log.info("Starting JWT validation for token: {}...", jwt.substring(0, Math.min(20, jwt.length())));
+            
             // Extract phone number from token
             phoneNumber = jwtService.extractUsername(jwt);
+            log.info("Extracted phone number from token: {}", phoneNumber);
 
             // If token is valid and user is not already authenticated
             if (phoneNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                log.info("Phone number is valid and user not authenticated, proceeding with validation");
 
                 // Validate token
+                log.info("Calling validateToken for phone: {}", phoneNumber);
                 if (jwtService.validateToken(jwt, phoneNumber)) {
-                    log.debug("JWT token validated successfully for phone: {}", phoneNumber);
+                    log.info("JWT token validated successfully for phone: {}", phoneNumber);
 
                     // Extract user ID from token
                     Long userId = jwtService.extractUserId(jwt);

@@ -114,6 +114,11 @@ public interface ConfigurationService {
     String getTwilioPhoneNumber();
 
     /**
+     * Get Twilio WhatsApp Number
+     */
+    String getTwilioWhatsAppNumber();
+
+    /**
      * Get Firebase Project ID
      */
     String getFirebaseProjectId();

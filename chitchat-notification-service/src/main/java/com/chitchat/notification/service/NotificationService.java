@@ -17,6 +17,8 @@ public interface NotificationService {
     
     void sendNotification(SendNotificationRequest request);
     
+    void sendNotificationByPhone(SendNotificationByPhoneRequest request);
+    
     void sendBulkNotification(List<Long> userIds, SendNotificationRequest request);
     
     Page<NotificationResponse> getUserNotifications(Long userId, Pageable pageable);

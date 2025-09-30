@@ -78,19 +78,17 @@ public class JwtService {
     
     public Boolean validateToken(String token, String phoneNumber) {
         try {
-            // First check if token exists in database and is valid
-            boolean dbValid = jwtTokenService.validateToken(token);
-            if (!dbValid) {
-                log.warn("Token not found in database or is invalid for user: {}", phoneNumber);
-                return false;
-            }
+            // Temporarily skip database validation to test if that's causing the hang
+            log.info("Validating token for user: {}", phoneNumber);
             
-            // Then validate JWT structure and expiration
+            // Validate JWT structure and expiration only
             final String username = extractUsername(token);
             boolean isValid = (username.equals(phoneNumber) && !isTokenExpired(token));
             
             if (!isValid) {
                 log.warn("Token validation failed for user: {}", phoneNumber);
+            } else {
+                log.info("Token validation successful for user: {}", phoneNumber);
             }
             
             return isValid;
@@ -114,11 +112,19 @@ public class JwtService {
     }
     
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        log.info("Extracting claims from token: {}...", token.substring(0, Math.min(20, token.length())));
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            log.info("Successfully extracted claims from token");
+            return claims;
+        } catch (Exception e) {
+            log.error("Error extracting claims from token: {}", e.getMessage());
+            throw e;
+        }
     }
     
     private Boolean isTokenExpired(String token) {

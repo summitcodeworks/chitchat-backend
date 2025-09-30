@@ -295,6 +295,67 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public BatchPhoneNumberCheckResponse checkMultiplePhoneNumbersExist(BatchPhoneNumberCheckRequest request) {
+        log.info("Checking existence for {} phone numbers", request.getPhoneNumbers().size());
+
+        // Validate input
+        if (request.getPhoneNumbers() == null || request.getPhoneNumbers().isEmpty()) {
+            throw new ChitChatException("Phone numbers list cannot be empty", HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
+        }
+
+        // Clean phone numbers
+        List<String> cleanPhoneNumbers = request.getPhoneNumbers().stream()
+                .filter(phone -> phone != null && !phone.trim().isEmpty())
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Fetch all users matching the phone numbers in a single query
+        List<User> existingUsers = userRepository.findByPhoneNumbersIn(cleanPhoneNumbers);
+
+        // Create a map for quick lookup
+        java.util.Map<String, User> phoneNumberUserMap = existingUsers.stream()
+                .collect(java.util.stream.Collectors.toMap(User::getPhoneNumber, user -> user));
+
+        // Build response for each phone number
+        List<PhoneNumberCheckResponse> results = cleanPhoneNumbers.stream()
+                .map(phoneNumber -> {
+                    User user = phoneNumberUserMap.get(phoneNumber);
+                    if (user != null) {
+                        return PhoneNumberCheckResponse.builder()
+                                .phoneNumber(phoneNumber)
+                                .exists(true)
+                                .user(mapToUserResponse(user))
+                                .message("User found with this phone number")
+                                .build();
+                    } else {
+                        return PhoneNumberCheckResponse.builder()
+                                .phoneNumber(phoneNumber)
+                                .exists(false)
+                                .user(null)
+                                .message("No user found with this phone number")
+                                .build();
+                    }
+                })
+                .collect(Collectors.toList());
+
+        int foundCount = (int) results.stream().filter(PhoneNumberCheckResponse::isExists).count();
+        int notFoundCount = results.size() - foundCount;
+
+        log.info("Batch check complete: {} found, {} not found out of {} total", 
+                foundCount, notFoundCount, results.size());
+
+        return BatchPhoneNumberCheckResponse.builder()
+                .results(results)
+                .totalChecked(results.size())
+                .foundCount(foundCount)
+                .notFoundCount(notFoundCount)
+                .message(String.format("Checked %d phone numbers: %d found, %d not found", 
+                        results.size(), foundCount, notFoundCount))
+                .build();
+    }
+
+    @Override
     public AuthResponse authenticateWithPhoneNumber(String phoneNumber) {
         log.info("Authenticating user with phone number: {}", phoneNumber);
 
@@ -419,5 +480,10 @@ public class UserServiceImpl implements UserService {
         user.setLastSeen(LocalDateTime.now());
         user.setIsOnline(true);
         userRepository.save(user);
+    }
+    
+    @Override
+    public java.util.Optional<User> findUserByPhoneNumber(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber);
     }
 }

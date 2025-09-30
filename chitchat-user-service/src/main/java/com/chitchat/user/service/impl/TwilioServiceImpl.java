@@ -137,4 +137,62 @@ public class TwilioServiceImpl implements TwilioService {
             return false;
         }
     }
+
+    @Override
+    public boolean sendOtpWhatsApp(String phoneNumber, String otp) {
+        try {
+            log.info("Sending OTP via WhatsApp to phone number: {}", phoneNumber);
+
+            // Get WhatsApp sender number from config, default to +18587805063 if not configured
+            String whatsappSenderNumber = configurationService.getTwilioWhatsAppNumber();
+            if (whatsappSenderNumber == null || whatsappSenderNumber.trim().isEmpty()) {
+                whatsappSenderNumber = "+18587805063";
+                log.info("Using default WhatsApp sender number: {}", whatsappSenderNumber);
+            }
+
+            // Check if Twilio is properly initialized
+            String accountSid = configurationService.getTwilioAccountSid();
+            String authToken = configurationService.getTwilioAuthToken();
+            if (accountSid == null || authToken == null) {
+                log.error("Twilio credentials not available for WhatsApp. Account SID: {}, Auth Token: {}",
+                    accountSid != null ? "present" : "missing",
+                    authToken != null ? "present" : "missing");
+                return false;
+            }
+
+            String messageBody = String.format(
+                "🔐 *ChitChat Verification Code*\n\n" +
+                "Your verification code is: *%s*\n\n" +
+                "This code will expire in 5 minutes.\n\n" +
+                "Do not share this code with anyone.", 
+                otp
+            );
+
+            // WhatsApp format: "whatsapp:+phoneNumber"
+            Message message = Message.creator(
+                new PhoneNumber("whatsapp:" + phoneNumber),
+                new PhoneNumber("whatsapp:" + whatsappSenderNumber),
+                messageBody
+            ).create();
+
+            log.info("OTP WhatsApp message sent successfully. Message SID: {}", message.getSid());
+            return true;
+
+        } catch (Exception e) {
+            log.error("Failed to send OTP via WhatsApp to phone number: {}", phoneNumber, e);
+            
+            // Log for development/testing purposes
+            if (e.getMessage() != null && (e.getMessage().contains("Authenticate") || 
+                                          e.getMessage().contains("not a WhatsApp number") ||
+                                          e.getMessage().contains("sandbox"))) {
+                log.warn("WhatsApp sending failed. This may be due to:");
+                log.warn("1. Trial account limitations (WhatsApp requires approved sender)");
+                log.warn("2. Recipient not using WhatsApp");
+                log.warn("3. WhatsApp sender number not configured in Twilio");
+                log.warn("For testing purposes, the OTP is: {}", otp);
+            }
+            
+            return false;
+        }
+    }
 }

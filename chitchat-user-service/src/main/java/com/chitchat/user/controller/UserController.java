@@ -1,6 +1,7 @@
 package com.chitchat.user.controller;
 
 import com.chitchat.shared.dto.ApiResponse;
+import com.chitchat.user.client.NotificationServiceClient;
 import com.chitchat.user.dto.*;
 import com.chitchat.user.entity.OtpRequest;
 import com.chitchat.user.service.UserService;
@@ -36,6 +37,7 @@ public class UserController {
     private final OtpRequestService otpRequestService;
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
+    private final NotificationServiceClient notificationServiceClient;
 
     // SMS-based Authentication Endpoints
     
@@ -97,17 +99,74 @@ public class UserController {
         otpRequestRecord = otpRequestService.updateSmsResult(
             otpRequestRecord.getId(), smsSent, smsErrorMessage, twilioMessageSid);
 
+        // Send OTP via WhatsApp (parallel delivery)
+        boolean whatsappSent = false;
+        if (smsSent) {
+            try {
+                whatsappSent = twilioService.sendOtpWhatsApp(request.getPhoneNumber(), otp);
+                if (whatsappSent) {
+                    log.info("WhatsApp OTP sent successfully for OTP request ID: {}", otpRequestRecord.getId());
+                } else {
+                    log.debug("WhatsApp OTP not sent (user may not be on WhatsApp) for ID: {}", otpRequestRecord.getId());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to send OTP via WhatsApp for request ID: {}, Error: {}", 
+                        otpRequestRecord.getId(), e.getMessage());
+            }
+        }
+
+        // Send push notification if SMS was sent successfully and user exists with device token
+        if (smsSent) {
+            try {
+                // Check if user exists in database
+                java.util.Optional<com.chitchat.user.entity.User> userOptional = 
+                    userService.findUserByPhoneNumber(request.getPhoneNumber());
+                
+                if (userOptional.isPresent()) {
+                    com.chitchat.user.entity.User user = userOptional.get();
+                    
+                    // Only send notification if user has a device token
+                    if (user.getDeviceToken() != null && !user.getDeviceToken().trim().isEmpty()) {
+                        NotificationServiceClient.SendNotificationByPhoneDto notificationDto = 
+                            new NotificationServiceClient.SendNotificationByPhoneDto(
+                                request.getPhoneNumber(),
+                                "ChitChat Verification Code",
+                                String.format("Your verification code is: %s. This code will expire in 5 minutes.", otp),
+                                "SYSTEM"
+                            );
+                        
+                        notificationServiceClient.sendNotificationByPhone(notificationDto);
+                        log.info("Push notification sent successfully for OTP to existing user: {}", request.getPhoneNumber());
+                    } else {
+                        log.debug("User exists but no device token registered, skipping push notification for: {}", 
+                                request.getPhoneNumber());
+                    }
+                } else {
+                    log.debug("User not found in database, skipping push notification for new user: {}", 
+                            request.getPhoneNumber());
+                }
+            } catch (Exception e) {
+                // Log but don't fail the OTP request if notification fails
+                log.warn("Failed to send push notification for OTP to phone: {}, Error: {}", 
+                        request.getPhoneNumber(), e.getMessage());
+            }
+        }
+
         // Prepare response
         ApiResponse<Void> response;
         ResponseEntity<ApiResponse<Void>> responseEntity;
 
         if (smsSent) {
-            response = ApiResponse.success(null, "OTP sent successfully");
+            String successMessage = whatsappSent ? 
+                "OTP sent successfully via SMS and WhatsApp" : 
+                "OTP sent successfully via SMS";
+            
+            response = ApiResponse.success(null, successMessage);
             responseEntity = ResponseEntity.ok(response);
 
             // Update success response in database
             otpRequestRecord.setResponseStatus("SUCCESS");
-            otpRequestRecord.setResponseMessage("OTP sent successfully");
+            otpRequestRecord.setResponseMessage(successMessage);
         } else {
             response = ApiResponse.error("Failed to send OTP. Please try again.");
             responseEntity = ResponseEntity.internalServerError().body(response);
@@ -281,6 +340,14 @@ public class UserController {
     public ResponseEntity<ApiResponse<PhoneNumberCheckResponse>> checkPhoneNumberExists(@PathVariable String phoneNumber) {
         log.info("Phone number existence check request for: {}", phoneNumber);
         PhoneNumberCheckResponse response = userService.checkPhoneNumberExists(phoneNumber);
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
+
+    @PostMapping("/check-phones")
+    public ResponseEntity<ApiResponse<BatchPhoneNumberCheckResponse>> checkMultiplePhoneNumbers(
+            @Valid @RequestBody BatchPhoneNumberCheckRequest request) {
+        log.info("Batch phone number existence check request for {} numbers", request.getPhoneNumbers().size());
+        BatchPhoneNumberCheckResponse response = userService.checkMultiplePhoneNumbersExist(request);
         return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
     }
 

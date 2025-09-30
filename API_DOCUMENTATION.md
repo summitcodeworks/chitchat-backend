@@ -71,7 +71,51 @@ curl -X POST http://localhost:9101/api/users/send-otp \
 1. **OTP Generation**: System generates a secure 6-digit OTP using `SecureRandom`
 2. **Redis Storage**: OTP is stored in Redis with 5-minute expiration for security
 3. **Twilio SMS**: OTP is sent via Twilio SMS service with custom message template
-4. **Rate Limiting**: Endpoint is rate-limited to prevent abuse (5 requests per minute)
+4. **WhatsApp**: OTP is also sent via WhatsApp (if user is available on WhatsApp)
+5. **Push Notification**: Automatically sends a push notification to the user's registered devices (if any)
+6. **Rate Limiting**: Endpoint is rate-limited to prevent abuse (5 requests per minute)
+
+**Multi-Channel Delivery System:**
+
+**1. SMS (Primary - Always Sent)**
+- Always sent to all users
+- Main delivery method
+- Uses Twilio SMS service
+
+**2. WhatsApp (Conditional - Automatic)**
+- Sent automatically if SMS succeeds
+- Only works if user is on WhatsApp
+- Uses Twilio WhatsApp Business API
+- Sender: `+918929607491` (default) or configured WhatsApp number
+- Non-blocking: If WhatsApp fails, OTP request still succeeds
+
+**3. Push Notification (Conditional - Smart)**
+- Conditionally sent based on:
+  - ✅ User exists in database
+  - ✅ User has registered device token
+  - ✅ SMS was sent successfully
+- **For new users**: Only SMS (+ WhatsApp if available)
+- **For existing users with device token**: SMS + WhatsApp + Push Notification
+- **For existing users without device token**: SMS + WhatsApp
+- Non-blocking: If push fails, OTP request still succeeds
+
+**Delivery Priority:**
+```
+SMS (Required)
+  ↓
+If SMS Success:
+  ├─→ Try WhatsApp (if available)
+  └─→ Try Push Notification (if user exists & has device token)
+```
+
+**Example Scenarios:**
+| User Type | SMS | WhatsApp | Push | Total Channels |
+|-----------|-----|----------|------|----------------|
+| New User (WhatsApp) | ✅ | ✅ | ❌ | 2 |
+| New User (No WhatsApp) | ✅ | ❌ | ❌ | 1 |
+| Existing (WhatsApp + Token) | ✅ | ✅ | ✅ | 3 |
+| Existing (WhatsApp, No Token) | ✅ | ✅ | ❌ | 2 |
+| Existing (No WhatsApp + Token) | ✅ | ❌ | ✅ | 2 |
 
 **Response:**
 ```json
@@ -955,9 +999,348 @@ curl -X GET http://localhost:9101/api/users/123 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
+### Check Single Phone Number Exists
+```bash
+curl -X GET "http://localhost:9101/api/users/check-phone/+1234567890" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response (User Found):**
+```json
+{
+  "success": true,
+  "message": "User found with this phone number",
+  "data": {
+    "phoneNumber": "+1234567890",
+    "exists": true,
+    "user": {
+      "id": 123,
+      "phoneNumber": "+1234567890",
+      "name": "John Doe",
+      "avatarUrl": "https://example.com/avatar.jpg",
+      "about": "Hey there! I'm using ChitChat.",
+      "lastSeen": "2025-09-30T10:30:00",
+      "isOnline": true,
+      "createdAt": "2025-09-20T08:00:00"
+    },
+    "message": "User found with this phone number"
+  }
+}
+```
+
+**Response (User Not Found):**
+```json
+{
+  "success": true,
+  "message": "No user found with this phone number",
+  "data": {
+    "phoneNumber": "+1234567890",
+    "exists": false,
+    "user": null,
+    "message": "No user found with this phone number"
+  }
+}
+```
+
+### Check Multiple Phone Numbers (Batch)
+```bash
+curl -X POST http://localhost:9101/api/users/check-phones \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumbers": [
+      "+1234567890",
+      "+1987654321",
+      "+1555555555"
+    ]
+  }'
+```
+
+**Request Body:**
+```json
+{
+  "phoneNumbers": [
+    "+1234567890",
+    "+1987654321",
+    "+1555555555"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Checked 3 phone numbers: 2 found, 1 not found",
+  "data": {
+    "results": [
+      {
+        "phoneNumber": "+1234567890",
+        "exists": true,
+        "user": {
+          "id": 123,
+          "phoneNumber": "+1234567890",
+          "name": "John Doe",
+          "avatarUrl": "https://example.com/avatar.jpg",
+          "about": "Hey there! I'm using ChitChat.",
+          "lastSeen": "2025-09-30T10:30:00",
+          "isOnline": true,
+          "createdAt": "2025-09-20T08:00:00"
+        },
+        "message": "User found with this phone number"
+      },
+      {
+        "phoneNumber": "+1987654321",
+        "exists": true,
+        "user": {
+          "id": 456,
+          "phoneNumber": "+1987654321",
+          "name": "Jane Smith",
+          "avatarUrl": "https://example.com/avatar2.jpg",
+          "about": "Available",
+          "lastSeen": "2025-09-30T09:15:00",
+          "isOnline": false,
+          "createdAt": "2025-09-15T12:00:00"
+        },
+        "message": "User found with this phone number"
+      },
+      {
+        "phoneNumber": "+1555555555",
+        "exists": false,
+        "user": null,
+        "message": "No user found with this phone number"
+      }
+    ],
+    "totalChecked": 3,
+    "foundCount": 2,
+    "notFoundCount": 1,
+    "message": "Checked 3 phone numbers: 2 found, 1 not found"
+  }
+}
+```
+
+**Features:**
+- Efficient batch processing with a single database query
+- Automatically removes duplicates from the input list
+- Cleans and validates phone numbers
+- Returns detailed status for each phone number
+- Includes summary statistics (total checked, found count, not found count)
+
+**Use Cases:**
+- Contact sync - check which contacts are registered users
+- Group creation - validate multiple phone numbers at once
+- Bulk user lookup for messaging features
+
 ---
 
 ## 2. Messaging Service APIs (`/api/messages`)
+
+### Understanding REST API vs WebSocket for Messaging
+
+**Important:** The messaging system uses BOTH REST API and WebSocket - they work together, not as alternatives.
+
+#### When to Use REST API (HTTP Endpoints)
+Use REST API endpoints for:
+- ✅ **Fetching conversation history** - Load past messages when opening a chat
+- ✅ **Sending messages** - Send messages (fallback when WebSocket is unavailable)
+- ✅ **Searching messages** - Search through message content
+- ✅ **Managing messages** - Delete, mark as read, edit messages
+- ✅ **Group management** - Create groups, add/remove members
+- ✅ **Initial data loading** - Pagination, filtering, sorting
+
+**Example Flow:**
+1. User opens chat with John → Use REST API to fetch last 50 messages
+2. User scrolls up → Use REST API to load older messages (pagination)
+3. User searches "hello" → Use REST API to search messages
+
+#### When to Use WebSocket (Real-time)
+Use WebSocket for:
+- ✅ **Receiving new messages instantly** - Get real-time message delivery
+- ✅ **Typing indicators** - Show when someone is typing
+- ✅ **Online/offline status** - Real-time presence updates
+- ✅ **Read receipts** - Instant message read confirmations
+- ✅ **Live updates** - Message edits, deletions in real-time
+
+**Example Flow:**
+1. User is in chat → WebSocket sends typing indicator to other person
+2. John sends message → WebSocket delivers message instantly to user
+3. User reads message → WebSocket sends read receipt to John
+
+#### Recommended Implementation Pattern
+
+```javascript
+// STEP 1: Connect WebSocket first (for real-time updates)
+const ws = new WebSocket('ws://localhost:9101/ws/messages');
+
+ws.onopen = () => {
+    // Authenticate WebSocket
+    ws.send(JSON.stringify({ type: 'AUTH', token: jwtToken }));
+};
+
+// STEP 2: Load conversation history via REST API
+async function openChat(receiverId) {
+    // Fetch last 50 messages - includes BOTH sent and received messages
+    // receiverId = the other user in the conversation
+    const response = await fetch(`/api/messages/conversation/${receiverId}?size=50`, {
+        headers: { 'Authorization': `Bearer ${jwtToken}` }
+    });
+    const data = await response.json();
+    
+    // data.data.content contains bidirectional messages
+    const messages = data.data.content.map(msg => ({
+        ...msg,
+        isSentByMe: msg.senderId === currentUserId,    // You are the sender
+        isSentByOther: msg.senderId === receiverId     // Other user is the sender
+    }));
+    
+    displayMessages(messages);
+}
+
+// STEP 3: Listen for new messages via WebSocket
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'NEW_MESSAGE') {
+        addMessageToChat(data.message); // Real-time update
+    }
+};
+
+// STEP 4: Send message via REST API (or WebSocket)
+async function sendMessage(content, receiverId) {
+    // Option A: Via REST API (more reliable, has retry logic)
+    await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 
+            'Authorization': `Bearer ${jwtToken}`,
+            'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ content, receiverId, messageType: 'TEXT' })
+    });
+    
+    // Option B: Via WebSocket (faster, but needs fallback)
+    // ws.send(JSON.stringify({ type: 'SEND_MESSAGE', data: { content, receiverId } }));
+}
+```
+
+#### Summary Table
+
+| Task | Use REST API | Use WebSocket | Why |
+|------|-------------|---------------|-----|
+| Load chat history | ✅ | ❌ | Pagination, filtering needed |
+| Send message | ✅ | ✅ | Both work, REST is more reliable |
+| Receive new message | ❌ | ✅ | Real-time delivery required |
+| Search messages | ✅ | ❌ | Complex query operations |
+| Typing indicator | ❌ | ✅ | Real-time status update |
+| Mark as read | ✅ | ✅ | Both work, REST for bulk operations |
+| Delete message | ✅ | ❌ | Action requires confirmation |
+| Online status | ❌ | ✅ | Real-time presence updates |
+
+**Best Practice:** Use REST API for all data operations and management. Use WebSocket only for real-time updates and notifications.
+
+---
+
+### Complete Chat Implementation Example
+
+Here's a complete example showing how to handle bidirectional conversations correctly:
+
+```javascript
+class ChatManager {
+    constructor(currentUserId, jwtToken) {
+        this.currentUserId = currentUserId;
+        this.jwtToken = jwtToken;
+        this.ws = null;
+    }
+
+    // Step 1: Initialize WebSocket connection
+    connectWebSocket() {
+        this.ws = new WebSocket('ws://localhost:9101/ws/messages');
+        
+        this.ws.onopen = () => {
+            this.ws.send(JSON.stringify({ 
+                type: 'AUTH', 
+                token: this.jwtToken 
+            }));
+        };
+        
+        this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'NEW_MESSAGE') {
+                this.handleNewMessage(data.message);
+            }
+        };
+    }
+
+    // Step 2: Load conversation history (bidirectional)
+    async loadConversation(receiverId) {
+        const response = await fetch(
+            `/api/messages/conversation/${receiverId}?size=50&sort=timestamp,asc`, 
+            {
+                headers: { 'Authorization': `Bearer ${this.jwtToken}` }
+            }
+        );
+        
+        const data = await response.json();
+        const messages = data.data.content;
+        
+        // Render messages with proper alignment
+        messages.forEach(msg => {
+            const isSentByMe = msg.senderId === this.currentUserId;  // You sent it
+            this.displayMessage(msg, isSentByMe);
+        });
+    }
+
+    // Step 3: Display message with correct alignment
+    displayMessage(message, isSentByMe) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = isSentByMe ? 'message-sent' : 'message-received';
+        messageDiv.innerHTML = `
+            <div class="message-content">${message.content}</div>
+            <div class="message-time">${message.timestamp}</div>
+            ${isSentByMe ? `<div class="message-status">${message.status}</div>` : ''}
+        `;
+        document.getElementById('chat-container').appendChild(messageDiv);
+    }
+
+    // Step 4: Send message
+    async sendMessage(receiverId, content) {
+        const response = await fetch('/api/messages/send', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${this.jwtToken}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({
+                receiverId: receiverId,
+                content: content,
+                messageType: 'TEXT'
+            })
+        });
+        
+        const data = await response.json();
+        // Message will also arrive via WebSocket for real-time update
+        return data;
+    }
+
+    // Step 5: Handle new incoming message from WebSocket
+    handleNewMessage(message) {
+        const isSentByMe = message.senderId === this.currentUserId;
+        this.displayMessage(message, isSentByMe);
+    }
+}
+
+// Usage:
+const chat = new ChatManager(currentUserId, jwtToken);
+chat.connectWebSocket();
+chat.loadConversation(receiverId);  // receiverId = the other user in the conversation
+```
+
+**Key Points:**
+1. **Conversation endpoint returns BOTH directions** - sent and received messages
+2. **Use `senderId` to determine message alignment** - compare with current user ID
+3. **WebSocket for real-time** - new messages appear instantly
+4. **REST API for history** - load past messages with pagination
+5. **Proper UI rendering** - align sent messages to right, received messages to left
+
+---
 
 ### Send Message
 ```bash
@@ -992,6 +1375,62 @@ curl -X POST http://localhost:9101/api/messages/send \
 curl -X GET "http://localhost:9101/api/messages/conversation/123?page=0&size=20&sort=timestamp,desc" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
+
+**How it works:**
+- Returns **bidirectional conversation** between the authenticated user (sender) and receiver with ID `123`
+- Includes messages sent BY you (senderId) TO receiver (receiverId = 123)
+- Includes messages sent BY receiver (senderId = 123) TO you (receiverId)
+- Sorted by timestamp (newest first by default)
+- Supports pagination (default: 50 messages per page)
+
+**Request Parameters:**
+- `receiverId` (path): The ID of the other user in the conversation
+- `page` (query, optional): Page number (default: 0)
+- `size` (query, optional): Page size (default: 50)
+- `sort` (query, optional): Sort order (default: timestamp,desc)
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "message": "Conversation messages retrieved successfully",
+  "data": {
+    "content": [
+      {
+        "id": "msg123",
+        "senderId": 456,
+        "recipientId": 123,
+        "content": "Hello!",
+        "messageType": "TEXT",
+        "status": "READ",
+        "timestamp": "2025-09-30T10:30:00",
+        "readAt": "2025-09-30T10:31:00"
+      },
+      {
+        "id": "msg124",
+        "senderId": 123,
+        "recipientId": 456,
+        "content": "Hi, how are you?",
+        "messageType": "TEXT",
+        "status": "DELIVERED",
+        "timestamp": "2025-09-30T10:29:00",
+        "readAt": null
+      }
+    ],
+    "totalElements": 45,
+    "totalPages": 3,
+    "currentPage": 0,
+    "pageSize": 20
+  }
+}
+```
+
+**Important Notes:**
+- This endpoint returns the **complete conversation** (both sides)
+- Use `senderId` field to distinguish who sent each message
+- If `senderId` matches your user ID → You sent this message
+- If `senderId` matches the other user's ID → They sent this message
+- Messages are typically sorted by timestamp in descending order (newest first)
 
 ### Get Group Messages
 ```bash
@@ -1161,6 +1600,37 @@ curl -X POST http://localhost:9101/api/notifications/send \
     }
   }'
 ```
+
+### Send Notification by Phone Number
+```bash
+curl -X POST http://localhost:9101/api/notifications/send-by-phone \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "title": "New Message",
+    "body": "You have a new message",
+    "type": "MESSAGE",
+    "imageUrl": "https://example.com/image.jpg",
+    "actionUrl": "/messages/123",
+    "data": {
+      "messageId": "789",
+      "senderId": "456"
+    }
+  }'
+```
+
+**Features:**
+- Send notifications using phone number instead of user ID
+- Automatically looks up user by phone number
+- Uses the registered device tokens for that user
+- Supports all notification types: `MESSAGE`, `CALL`, `STATUS_UPDATE`, `FRIEND_REQUEST`, `GROUP_INVITE`, `SYSTEM`
+
+**Use Cases:**
+- Send notification when you only know the phone number
+- Welcome notifications for new users
+- OTP-related notifications
+- Emergency or security alerts
 
 ### Send Bulk Notification
 ```bash

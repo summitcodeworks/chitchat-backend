@@ -1,0 +1,41 @@
+package com.chitchat.notification.dto;
+
+import com.chitchat.notification.entity.Notification;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+/**
+ * DTO for sending notification by phone number
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SendNotificationByPhoneRequest {
+    
+    @NotBlank(message = "Phone number is required")
+    @Pattern(regexp = "^\\+[1-9]\\d{1,14}$", message = "Phone number must be in international format (e.g., +1234567890)")
+    private String phoneNumber;
+    
+    @NotBlank(message = "Title is required")
+    private String title;
+    
+    @NotBlank(message = "Body is required")
+    private String body;
+    
+    @NotNull(message = "Notification type is required")
+    private Notification.NotificationType type;
+    
+    private String imageUrl;
+    private String actionUrl;
+    private Map<String, Object> data;
+    private LocalDateTime scheduledAt;
+}

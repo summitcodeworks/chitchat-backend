@@ -55,20 +55,22 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         String path = request.getPath().value();
         String method = request.getMethod().name();
 
-        log.debug("Processing request: {} {}", method, path);
+        log.info("Gateway AuthenticationFilter: Processing request: {} {}", method, path);
 
         // Skip authentication for public endpoints
         if (isPublicEndpoint(path)) {
-            log.debug("Public endpoint, skipping authentication: {}", path);
+            log.info("Gateway AuthenticationFilter: Public endpoint, skipping authentication: {}", path);
             return chain.filter(exchange);
         }
 
         // Extract token from Authorization header
         String token = extractToken(request);
         if (token == null) {
-            log.warn("No token found in request to: {}", path);
+            log.warn("Gateway AuthenticationFilter: No token found in request to: {}", path);
             return handleUnauthorized(exchange, "No authentication token provided");
         }
+
+        log.info("Gateway AuthenticationFilter: Found token for path {}: {}...", path, token.substring(0, Math.min(20, token.length())));
 
         // Determine token type and validate
         return validateToken(token, path)
@@ -105,17 +107,24 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     private Mono<Map<String, Object>> validateToken(String token, String path) {
         return Mono.fromCallable(() -> {
+            log.info("Gateway AuthenticationFilter: Validating token for path: {}", path);
             Map<String, Object> result = new HashMap<>();
 
-            // Validate as internal JWT token
-            if (jwtService.validateToken(token)) {
-                log.debug("Valid JWT token");
-                result.put("valid", true);
-                result.put("tokenType", "jwt");
-                result.put("userId", jwtService.extractUserId(token));
-                result.put("username", jwtService.extractUsername(token));
-                result.put("phoneNumber", jwtService.extractPhoneNumber(token));
-                return result;
+            try {
+                // Validate as internal JWT token
+                if (jwtService.validateToken(token)) {
+                    log.info("Gateway AuthenticationFilter: Valid JWT token");
+                    result.put("valid", true);
+                    result.put("tokenType", "jwt");
+                    result.put("userId", jwtService.extractUserId(token));
+                    result.put("username", jwtService.extractUsername(token));
+                    result.put("phoneNumber", jwtService.extractPhoneNumber(token));
+                    return result;
+                } else {
+                    log.warn("Gateway AuthenticationFilter: JWT token validation failed");
+                }
+            } catch (Exception e) {
+                log.error("Gateway AuthenticationFilter: Error during JWT validation: {}", e.getMessage());
             }
 
             result.put("valid", false);

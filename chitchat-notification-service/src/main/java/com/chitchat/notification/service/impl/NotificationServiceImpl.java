@@ -1,5 +1,6 @@
 package com.chitchat.notification.service.impl;
 
+import com.chitchat.notification.client.UserServiceClient;
 import com.chitchat.notification.dto.*;
 import com.chitchat.notification.entity.DeviceToken;
 import com.chitchat.notification.entity.Notification;
@@ -7,6 +8,7 @@ import com.chitchat.notification.repository.DeviceTokenRepository;
 import com.chitchat.notification.repository.NotificationRepository;
 import com.chitchat.notification.service.NotificationService;
 import com.chitchat.notification.service.FirebaseNotificationService;
+import com.chitchat.shared.dto.ApiResponse;
 import com.chitchat.shared.exception.ChitChatException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +37,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final FirebaseNotificationService firebaseNotificationService;
     private final ObjectMapper objectMapper;
+    private final UserServiceClient userServiceClient;
     
     @Override
     @Transactional
@@ -117,6 +120,44 @@ public class NotificationServiceImpl implements NotificationService {
         
         // Send notification asynchronously
         sendNotificationAsync(notification);
+    }
+    
+    @Override
+    @Transactional
+    public void sendNotificationByPhone(SendNotificationByPhoneRequest request) {
+        log.info("Sending notification to phone number: {}", request.getPhoneNumber());
+        
+        try {
+            // Get user by phone number from user service
+            ApiResponse<UserServiceClient.UserDto> response = userServiceClient.getUserByPhoneNumber(request.getPhoneNumber());
+            
+            if (response == null || !response.isSuccess() || response.getData() == null) {
+                throw new ChitChatException("User not found with phone number: " + request.getPhoneNumber(), 
+                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
+            }
+            
+            UserServiceClient.UserDto user = response.getData();
+            log.info("Found user with ID: {} for phone number: {}", user.getId(), request.getPhoneNumber());
+            
+            // Create and send notification using userId
+            SendNotificationRequest notificationRequest = SendNotificationRequest.builder()
+                    .userId(user.getId())
+                    .title(request.getTitle())
+                    .body(request.getBody())
+                    .type(request.getType())
+                    .imageUrl(request.getImageUrl())
+                    .actionUrl(request.getActionUrl())
+                    .data(request.getData())
+                    .scheduledAt(request.getScheduledAt())
+                    .build();
+            
+            sendNotification(notificationRequest);
+            
+        } catch (Exception e) {
+            log.error("Failed to send notification by phone number: {}", request.getPhoneNumber(), e);
+            throw new ChitChatException("Failed to send notification: " + e.getMessage(), 
+                    HttpStatus.INTERNAL_SERVER_ERROR, "NOTIFICATION_SEND_FAILED");
+        }
     }
     
     @Override

@@ -81,14 +81,135 @@ print_header() {
     echo -e "${BLUE}[HEADER]${NC} $1"
 }
 
+# Function to create logback configuration for a service
+create_logback_config() {
+    local service_dir=$1
+    local log_dir=$2
+    local service_name=$3
+
+    # Create resources directory if it doesn't exist
+    mkdir -p "$service_dir/src/main/resources"
+
+    # Check if logback-spring.xml already exists
+    if [ -f "$service_dir/src/main/resources/logback-spring.xml" ]; then
+        return 0
+    fi
+
+    # Create logback-spring.xml
+    cat > "$service_dir/src/main/resources/logback-spring.xml" << 'LOGBACK_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Define log directory -->
+    <property name="LOG_DIR" value="${LOG_DIR:-./logs/SERVICE_LOG_DIR}"/>
+    <property name="SERVICE_NAME" value="SERVICE_NAME_PLACEHOLDER"/>
+
+    <!-- Console appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%clr(%d{ISO8601}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File appender for general logs -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${SERVICE_NAME}.log</file>
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/${SERVICE_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- File appender for error logs -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${SERVICE_NAME}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/${SERVICE_NAME}-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Root logger -->
+    <springProfile name="!dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- Development profile with more verbose logging -->
+    <springProfile name="dev">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+</configuration>
+LOGBACK_EOF
+
+    # Replace placeholders with actual values
+    sed -i.bak "s/SERVICE_LOG_DIR/$log_dir/g" "$service_dir/src/main/resources/logback-spring.xml"
+    sed -i.bak "s/SERVICE_NAME_PLACEHOLDER/$service_name/g" "$service_dir/src/main/resources/logback-spring.xml"
+    rm -f "$service_dir/src/main/resources/logback-spring.xml.bak"
+
+    echo "Created logback configuration for $service_dir"
+}
+
+# Function to ensure logback configurations exist for all services
+ensure_logback_configs() {
+    print_header "Ensuring logback configurations exist..."
+
+    # Services and their log directories
+    declare -A services=(
+        ["chitchat-notification-service"]="notification-service"
+        ["chitchat-media-service"]="media-service"
+        ["chitchat-calls-service"]="calls-service"
+        ["chitchat-status-service"]="status-service"
+        ["chitchat-admin-service"]="admin-service"
+        ["chitchat-eureka-server"]="eureka-server"
+    )
+
+    for service_dir in "${!services[@]}"; do
+        log_dir=${services[$service_dir]}
+        service_name=${services[$service_dir]}
+        create_logback_config "$service_dir" "$log_dir" "$service_name"
+    done
+
+    print_status "Logback configuration check completed!"
+}
+
 # Function to start service with appropriate mode
 start_service() {
     local service_name=$1
     local port=$2
     local color=$3
+    local log_dir_name=$4
+
+    # Ensure logs directory exists
+    mkdir -p "logs/$log_dir_name"
+
+    # Set log directory for the service
+    local log_dir_path="$(pwd)/logs/$log_dir_name"
 
     if [ "$DEV_MODE" = true ]; then
         echo -e "${color}📦 Starting $service_name on port $port with auto-reload...${NC}"
+        echo -e "${color}📁 Logs will be written to: logs/$log_dir_name/${NC}"
         cd "$service_name" || {
             print_error "Failed to enter $service_name directory"
             return 1
@@ -97,19 +218,26 @@ start_service() {
         mvn spring-boot:run \
             -Dspring-boot.run.profiles=dev \
             -Dspring-boot.run.arguments="--server.port=$port" \
-            -Dspring-boot.run.jvmArguments="-Dspring.devtools.restart.enabled=true" &
+            -Dspring-boot.run.jvmArguments="-Dspring.devtools.restart.enabled=true -DLOG_DIR=$log_dir_path" \
+            2>&1 | tee "../logs/$log_dir_name/console.log" &
     else
         echo -e "${color}📦 Starting $service_name on port $port...${NC}"
+        echo -e "${color}📁 Logs will be written to: logs/$log_dir_name/${NC}"
         cd "$service_name" || {
             print_error "Failed to enter $service_name directory"
             return 1
         }
         # Production mode
-        mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=$port" &
+        mvn spring-boot:run \
+            -Dspring-boot.run.arguments="--server.port=$port" \
+            -Dspring-boot.run.jvmArguments="-DLOG_DIR=$log_dir_path" \
+            2>&1 | tee "../logs/$log_dir_name/console.log" &
     fi
 
     local pid=$!
     echo -e "${GREEN}✅ $service_name started with PID: $pid${NC}"
+    echo -e "${GREEN}📋 Console logs: logs/$log_dir_name/console.log${NC}"
+    echo -e "${GREEN}📋 Application logs: logs/$log_dir_name/[service-name].log${NC}"
     cd ..
     return 0
 }
@@ -180,44 +308,47 @@ else
     print_warning "Database verification script not found. Skipping verification."
 fi
 
+# Ensure all services have logback configurations
+ensure_logback_configs
+
 # Start Eureka Server (Port 8761)
 print_header "Starting microservices..."
-start_service "chitchat-eureka-server" 8761 "$BLUE"
+start_service "chitchat-eureka-server" 8761 "$BLUE" "eureka-server"
 
 # Wait for Eureka to start
 print_status "Waiting for Eureka Server to start..."
 sleep 30
 
 # Start API Gateway (Port 9101)
-start_service "chitchat-api-gateway" 9101 "$GREEN"
+start_service "chitchat-api-gateway" 9101 "$GREEN" "api-gateway"
 sleep 5
 
 # Start User Service (Port 9102)
-start_service "chitchat-user-service" 9102 "$YELLOW"
+start_service "chitchat-user-service" 9102 "$YELLOW" "user-service"
 sleep 3
 
 # Start Messaging Service (Port 9103)
-start_service "chitchat-messaging-service" 9103 "$RED"
+start_service "chitchat-messaging-service" 9103 "$RED" "messaging-service"
 sleep 3
 
 # Start Media Service (Port 9104)
-start_service "chitchat-media-service" 9104 "$PURPLE"
+start_service "chitchat-media-service" 9104 "$PURPLE" "media-service"
 sleep 3
 
 # Start Calls Service (Port 9105)
-start_service "chitchat-calls-service" 9105 "$BLUE"
+start_service "chitchat-calls-service" 9105 "$BLUE" "calls-service"
 sleep 3
 
 # Start Notification Service (Port 9106)
-start_service "chitchat-notification-service" 9106 "$GREEN"
+start_service "chitchat-notification-service" 9106 "$GREEN" "notification-service"
 sleep 3
 
 # Start Status Service (Port 9107)
-start_service "chitchat-status-service" 9107 "$YELLOW"
+start_service "chitchat-status-service" 9107 "$YELLOW" "status-service"
 sleep 3
 
 # Start Admin Service (Port 9108)
-start_service "chitchat-admin-service" 9108 "$RED"
+start_service "chitchat-admin-service" 9108 "$RED" "admin-service"
 
 print_header "All services started successfully!"
 echo ""
@@ -254,6 +385,19 @@ if [ "$DEV_MODE" = true ]; then
     echo ""
 fi
 
+print_header "📋 Log Monitoring Commands"
+echo "=========================="
+echo "• View all service logs:     tail -f logs/*/console.log"
+echo "• View specific service:     tail -f logs/[service-name]/console.log"
+echo "• View application logs:     tail -f logs/[service-name]/[service-name].log"
+echo "• View error logs only:      tail -f logs/*/[service-name]-error.log"
+echo "• View authentication logs:  tail -f logs/{api-gateway,user-service}/*-auth.log"
+echo ""
+echo "Example commands:"
+echo "• tail -f logs/api-gateway/console.log"
+echo "• tail -f logs/user-service/user-service.log"
+echo "• tail -f logs/api-gateway/api-gateway-auth.log"
+echo ""
 print_status "To stop all services, run: ./stop-services.sh"
 
 if [ "$DEV_MODE" = true ]; then

@@ -213,6 +213,11 @@ public class ConfigurationServiceImpl implements ConfigurationService {
     }
 
     @Override
+    public String getTwilioWhatsAppNumber() {
+        return getConfigValue("twilio.whatsapp.number");
+    }
+
+    @Override
     public String getFirebaseProjectId() {
         return getConfigValue("firebase.project.id");
     }

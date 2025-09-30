@@ -50,6 +50,15 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(null, "Notification sent successfully"));
     }
     
+    @PostMapping("/send-by-phone")
+    public ResponseEntity<ApiResponse<Void>> sendNotificationByPhone(
+            @RequestHeader("Authorization") String token,
+            @Valid @RequestBody SendNotificationByPhoneRequest request) {
+        log.info("Sending notification to phone number: {}", request.getPhoneNumber());
+        notificationService.sendNotificationByPhone(request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Notification sent successfully to phone number"));
+    }
+    
     @PostMapping("/send-bulk")
     public ResponseEntity<ApiResponse<Void>> sendBulkNotification(
             @RequestHeader("Authorization") String token,

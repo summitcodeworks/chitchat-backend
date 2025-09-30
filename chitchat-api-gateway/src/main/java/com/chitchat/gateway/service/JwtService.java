@@ -45,11 +45,19 @@ public class JwtService {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        log.info("API Gateway: Extracting claims from token: {}...", token.substring(0, Math.min(20, token.length())));
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            log.info("API Gateway: Successfully extracted claims from token");
+            return claims;
+        } catch (Exception e) {
+            log.error("API Gateway: Error extracting claims from token: {}", e.getMessage());
+            throw e;
+        }
     }
 
     private Boolean isTokenExpired(String token) {
@@ -80,9 +88,12 @@ public class JwtService {
 
     public Boolean validateToken(String token) {
         try {
-            return !isTokenExpired(token);
+            log.info("Gateway JwtService: Validating token: {}...", token.substring(0, Math.min(20, token.length())));
+            boolean expired = isTokenExpired(token);
+            log.info("Gateway JwtService: Token expired: {}", expired);
+            return !expired;
         } catch (Exception e) {
-            log.warn("Token validation failed: {}", e.getMessage());
+            log.error("Gateway JwtService: Token validation failed: {}", e.getMessage());
             return false;
         }
     }

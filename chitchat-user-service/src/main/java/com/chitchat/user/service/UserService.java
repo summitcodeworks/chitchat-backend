@@ -48,6 +48,13 @@ public interface UserService {
     PhoneNumberCheckResponse checkPhoneNumberExists(String phoneNumber);
     
     /**
+     * Check if multiple phone numbers exist in the system
+     * @param request The batch phone number check request
+     * @return BatchPhoneNumberCheckResponse with existence status for each phone number
+     */
+    BatchPhoneNumberCheckResponse checkMultiplePhoneNumbersExist(BatchPhoneNumberCheckRequest request);
+    
+    /**
      * Authenticate user with phone number (login or register)
      * @param phoneNumber The phone number
      * @return AuthResponse with JWT token and user details
@@ -61,4 +68,11 @@ public interface UserService {
      * @return UserResponse with updated user details
      */
     UserResponse updateDeviceToken(Long userId, DeviceTokenUpdateRequest request);
+    
+    /**
+     * Find user by phone number (internal use)
+     * @param phoneNumber The phone number
+     * @return Optional containing User entity if found
+     */
+    java.util.Optional<com.chitchat.user.entity.User> findUserByPhoneNumber(String phoneNumber);
 }
