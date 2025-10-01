@@ -2367,4 +2367,69 @@ ERROR - Failed to send OTP SMS to phone number: +1234567890
 
 ---
 
-*Last updated: September 24, 2025 - Added SMS-Based Authentication with Twilio Integration*
+---
+
+## Troubleshooting Common Issues
+
+### 503 Service Unavailable - "Unable to find instance for chitchat-user-service"
+
+**Cause:** The requested service is not running or not registered with Eureka.
+
+**Solution:**
+1. Check if all services are running:
+```bash
+netstat -tlnp | grep -E "(8761|9101|9102|9103|9104|9105|9106|9107|9108)"
+```
+
+2. Verify Eureka server is running on port 8761
+3. Restart the specific service:
+```bash
+cd chitchat-user-service
+mvn clean install -DskipTests
+mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9102"
+```
+
+4. Or use the startup script:
+```bash
+./start-services.sh
+```
+
+### 401 Unauthorized
+
+**Cause:** Missing or invalid JWT token.
+
+**Solution:**
+1. Verify the token is included in the Authorization header
+2. Check if the token has expired (default expiration: 24 hours)
+3. Get a new token by authenticating again:
+```bash
+curl -X POST http://localhost:9101/api/users/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber": "+1234567890"}'
+
+curl -X POST http://localhost:9101/api/users/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber": "+1234567890", "otp": "YOUR_OTP"}'
+```
+
+### Phone Number Format
+
+**Important:** Phone numbers are stored **without the `+` sign** and **without spaces**:
+- Input: `"+1234567890"` or `" +1234567890 "`
+- Stored in DB: `"1234567890"`
+- All searches automatically normalize the format
+
+---
+
+## Recent Updates
+
+### September 30, 2025
+- Added Device Token Update API endpoint (`PUT /api/users/device-token`)
+- Implemented phone number normalization (removes `+` sign and trims spaces)
+- Fixed API Gateway security configuration for public endpoints
+- All phone number searches now use normalized format (without `+` and spaces)
+
+### September 24, 2025
+- Added SMS-Based Authentication with Twilio Integration
+
+*Last updated: September 30, 2025*

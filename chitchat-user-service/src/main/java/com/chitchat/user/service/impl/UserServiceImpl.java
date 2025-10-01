@@ -34,6 +34,16 @@ public class UserServiceImpl implements UserService {
     private final FirebaseService firebaseService;
     private final TwilioService twilioService;
 
+    /**
+     * Normalize phone number by trimming and removing + sign for database search
+     */
+    private String normalizePhoneNumber(String phoneNumber) {
+        if (phoneNumber == null) {
+            return null;
+        }
+        return phoneNumber.trim().replaceAll("^\\+", "");
+    }
+
     @Override
     @Transactional
     public AuthResponse authenticateWithFirebase(FirebaseAuthRequest request) {
@@ -53,8 +63,11 @@ public class UserServiceImpl implements UserService {
 
             log.info("Firebase token verified for phone number: {}", phoneNumber);
 
+            // Normalize phone number for search
+            String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+
             // Check if user exists in our database
-            User user = userRepository.findByPhoneNumber(phoneNumber)
+            User user = userRepository.findByPhoneNumber(normalizedPhoneNumber)
                     .orElse(null);
 
             if (user == null) {
@@ -91,17 +104,19 @@ public class UserServiceImpl implements UserService {
     public AuthResponse registerUser(UserRegistrationRequest request) {
         log.info("Registering user with phone number: {}", request.getPhoneNumber());
         
+        String normalizedPhoneNumber = normalizePhoneNumber(request.getPhoneNumber());
+        
         // Check if user already exists
-        if (userRepository.findByPhoneNumber(request.getPhoneNumber()).isPresent()) {
+        if (userRepository.findByPhoneNumber(normalizedPhoneNumber).isPresent()) {
             throw new ChitChatException("User already exists", HttpStatus.CONFLICT, "USER_EXISTS");
         }
         
         // Note: Firebase verification removed - use Firebase token authentication instead
-        String firebaseUid = "legacy-uid-" + request.getPhoneNumber().hashCode();
+        String firebaseUid = "legacy-uid-" + normalizedPhoneNumber.hashCode();
         
         // Create new user
         User user = User.builder()
-                .phoneNumber(request.getPhoneNumber())
+                .phoneNumber(normalizedPhoneNumber)
                 .name(request.getName())
                 .isActive(true)
                 .isOnline(false)
@@ -127,7 +142,8 @@ public class UserServiceImpl implements UserService {
     public AuthResponse loginUser(UserLoginRequest request) {
         log.info("User login attempt for phone number: {}", request.getPhoneNumber());
         
-        User user = userRepository.findByPhoneNumber(request.getPhoneNumber())
+        String normalizedPhoneNumber = normalizePhoneNumber(request.getPhoneNumber());
+        User user = userRepository.findByPhoneNumber(normalizedPhoneNumber)
                 .orElseThrow(() -> new ChitChatException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
         
         // Note: OTP verification removed - use Firebase token authentication instead
@@ -178,7 +194,12 @@ public class UserServiceImpl implements UserService {
     public List<UserResponse> syncContacts(Long userId, ContactsSyncRequest request) {
         log.info("Syncing contacts for user ID: {}", userId);
         
-        List<User> registeredUsers = userRepository.findByPhoneNumbersIn(request.getPhoneNumbers());
+        // Normalize all phone numbers
+        List<String> normalizedPhoneNumbers = request.getPhoneNumbers().stream()
+                .map(this::normalizePhoneNumber)
+                .collect(Collectors.toList());
+        
+        List<User> registeredUsers = userRepository.findByPhoneNumbersIn(normalizedPhoneNumbers);
         
         return registeredUsers.stream()
                 .map(this::mapToUserResponse)
@@ -243,7 +264,8 @@ public class UserServiceImpl implements UserService {
     
     @Override
     public UserResponse getUserByPhoneNumber(String phoneNumber) {
-        User user = userRepository.findByPhoneNumber(phoneNumber)
+        String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+        User user = userRepository.findByPhoneNumber(normalizedPhoneNumber)
                 .orElseThrow(() -> new ChitChatException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
         
         return mapToUserResponse(user);
@@ -266,8 +288,8 @@ public class UserServiceImpl implements UserService {
             throw new ChitChatException("Phone number cannot be empty", HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
         }
 
-        // Clean and format phone number
-        String cleanPhoneNumber = phoneNumber.trim();
+        // Normalize phone number
+        String cleanPhoneNumber = normalizePhoneNumber(phoneNumber);
 
         // Check if user exists with this phone number
         java.util.Optional<User> userOptional = userRepository.findByPhoneNumber(cleanPhoneNumber);
@@ -303,10 +325,10 @@ public class UserServiceImpl implements UserService {
             throw new ChitChatException("Phone numbers list cannot be empty", HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
         }
 
-        // Clean phone numbers
+        // Normalize phone numbers
         List<String> cleanPhoneNumbers = request.getPhoneNumbers().stream()
                 .filter(phone -> phone != null && !phone.trim().isEmpty())
-                .map(String::trim)
+                .map(this::normalizePhoneNumber)
                 .distinct()
                 .collect(Collectors.toList());
 
@@ -364,7 +386,7 @@ public class UserServiceImpl implements UserService {
             throw new ChitChatException("Phone number cannot be empty", HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
         }
 
-        String cleanPhoneNumber = phoneNumber.trim();
+        String cleanPhoneNumber = normalizePhoneNumber(phoneNumber);
 
         // Check if user exists
         java.util.Optional<User> userOptional = userRepository.findByPhoneNumber(cleanPhoneNumber);
@@ -448,8 +470,11 @@ public class UserServiceImpl implements UserService {
             }
         }
         
+        // Normalize phone number before saving
+        String normalizedPhoneNumber = normalizePhoneNumber(firebaseUser.getPhoneNumber());
+        
         User user = User.builder()
-                .phoneNumber(firebaseUser.getPhoneNumber())
+                .phoneNumber(normalizedPhoneNumber)
                 .name(name.trim())
                 .isActive(true)
                 .isOnline(true)
