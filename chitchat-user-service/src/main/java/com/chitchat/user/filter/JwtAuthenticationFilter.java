@@ -17,15 +17,65 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 /**
- * JWT Authentication Filter to process Bearer tokens
+ * JWT Authentication Filter for validating Bearer tokens on every request
+ * 
+ * This filter intercepts all HTTP requests and validates JWT tokens.
+ * Extends OncePerRequestFilter to guarantee single execution per request.
+ * 
+ * Filter Responsibilities:
+ * 1. Extract JWT token from Authorization header
+ * 2. Validate token signature and expiration
+ * 3. Extract user information from token claims
+ * 4. Populate Spring Security context with user details
+ * 5. Allow request to proceed if valid, or let it fail at authorization check
+ * 
+ * Filter Order:
+ * - Runs BEFORE UsernamePasswordAuthenticationFilter
+ * - Configured in SecurityConfig.filterChain()
+ * 
+ * Authentication Flow:
+ * Request -> JwtAuthenticationFilter -> Validate Token -> Set SecurityContext -> Continue
+ * 
+ * If No Token or Invalid:
+ * - Request continues without authentication
+ * - Authorization check in SecurityConfig will reject it
+ * - Public endpoints are still accessible
+ * 
+ * Token Format:
+ * Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ * 
+ * Security Context Population:
+ * - Principal: Phone number (username)
+ * - Credentials: User ID
+ * - Authorities: Empty (role-based auth not implemented)
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /**
+     * JWT service for token validation and claims extraction
+     */
     private final JwtService jwtService;
 
+    /**
+     * Main filter method called for every HTTP request
+     * 
+     * Process:
+     * 1. Check for Authorization header
+     * 2. Extract Bearer token
+     * 3. Validate token
+     * 4. Extract user claims
+     * 5. Set authentication in SecurityContext
+     * 6. Continue filter chain
+     * 
+     * @param request HTTP request
+     * @param response HTTP response
+     * @param filterChain Remaining filters to execute
+     * @throws ServletException if servlet error occurs
+     * @throws IOException if I/O error occurs
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                   HttpServletResponse response,
@@ -35,58 +85,79 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String phoneNumber;
 
-        // Check if Authorization header exists and starts with "Bearer "
+        // Step 1: Check if Authorization header exists and has Bearer scheme
+        // No header or wrong scheme -> skip JWT authentication (public endpoint or error)
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Extract JWT token
+        // Step 2: Extract JWT token (remove "Bearer " prefix, which is 7 characters)
         jwt = authHeader.substring(7);
 
         try {
             log.info("Starting JWT validation for token: {}...", jwt.substring(0, Math.min(20, jwt.length())));
             
-            // Extract phone number from token
+            // Step 3: Extract phone number (username) from token
+            // This is the 'subject' claim in the JWT
             phoneNumber = jwtService.extractUsername(jwt);
             log.info("Extracted phone number from token: {}", phoneNumber);
 
-            // If token is valid and user is not already authenticated
+            // Step 4: Check if we should proceed with authentication
+            // - phoneNumber must be extracted successfully
+            // - User must not already be authenticated (avoid re-authentication)
             if (phoneNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 log.info("Phone number is valid and user not authenticated, proceeding with validation");
 
-                // Validate token
+                // Step 5: Validate the JWT token
+                // Checks:
+                // - Token signature is valid (not tampered)
+                // - Token hasn't expired
+                // - Phone number in token matches expected
                 log.info("Calling validateToken for phone: {}", phoneNumber);
                 if (jwtService.validateToken(jwt, phoneNumber)) {
                     log.info("JWT token validated successfully for phone: {}", phoneNumber);
 
-                    // Extract user ID from token
+                    // Step 6: Extract user ID from custom claim
                     Long userId = jwtService.extractUserId(jwt);
 
-                    // Create authentication token
+                    // Step 7: Create Spring Security authentication token
+                    // - Principal: Phone number (acts as username)
+                    // - Credentials: User ID (for easy access in controllers)
+                    // - Authorities: Empty list (role-based auth not implemented)
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        phoneNumber, // principal (phone number)
-                        userId,      // credentials (user ID)
-                        new ArrayList<>() // authorities (empty for now)
+                        phoneNumber,       // principal (who the user is)
+                        userId,            // credentials (user's ID)
+                        new ArrayList<>()  // authorities (roles/permissions - none for now)
                     );
 
-                    // Set authentication details
+                    // Step 8: Add request details (IP address, session ID, etc.)
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    // Set authentication in security context
+                    // Step 9: Set authentication in SecurityContext
+                    // This makes the user "authenticated" for this request
+                    // Other filters and controllers can now access user info
                     SecurityContextHolder.getContext().setAuthentication(authToken);
 
                     log.debug("Authentication set for phone: {} with userId: {}", phoneNumber, userId);
                 } else {
                     log.warn("Invalid JWT token for phone: {}", phoneNumber);
+                    // Token is invalid - user remains unauthenticated
+                    // Request will likely be rejected by authorization rules
                 }
             }
         } catch (Exception e) {
+            // Exception during token processing
+            // Could be: Expired token, invalid signature, malformed token, etc.
             log.error("JWT token validation error: {}", e.getMessage());
-            // Clear security context on error
+            
+            // Clear security context to ensure no partial authentication
             SecurityContextHolder.clearContext();
         }
 
+        // Step 10: Continue with the rest of the filter chain
+        // Whether authentication succeeded or failed, let request proceed
+        // Authorization checks in SecurityConfig will handle rejection
         filterChain.doFilter(request, response);
     }
 }
