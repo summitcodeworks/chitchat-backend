@@ -1,5 +1,7 @@
 package com.chitchat.messaging.service.impl;
 
+import com.chitchat.messaging.client.NotificationServiceClient;
+import com.chitchat.messaging.client.UserServiceClient;
 import com.chitchat.messaging.document.Group;
 import com.chitchat.messaging.document.Message;
 import com.chitchat.messaging.dto.*;
@@ -31,6 +33,8 @@ public class MessagingServiceImpl implements MessagingService {
     private final MessageRepository messageRepository;
     private final GroupRepository groupRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final NotificationServiceClient notificationClient;
+    private final UserServiceClient userServiceClient;
     
     @Override
     @Transactional
@@ -42,7 +46,7 @@ public class MessagingServiceImpl implements MessagingService {
                 .recipientId(request.getRecipientId())
                 .groupId(request.getGroupId())
                 .content(request.getContent())
-                .type(request.getType())
+                .type(request.getType() != null ? request.getType() : Message.MessageType.TEXT)
                 .status(Message.MessageStatus.SENT)
                 .mediaUrl(request.getMediaUrl())
                 .thumbnailUrl(request.getThumbnailUrl())
@@ -55,6 +59,9 @@ public class MessagingServiceImpl implements MessagingService {
         
         // Publish message event to Kafka for real-time delivery
         publishMessageEvent(message);
+        
+        // Send push notification to recipient(s)
+        sendPushNotification(message, senderId);
         
         log.info("Message sent successfully with ID: {}", message.getId());
         
@@ -302,6 +309,98 @@ public class MessagingServiceImpl implements MessagingService {
     private void publishDeleteMessageEvent(Message message) {
         // Publish delete event to Kafka
         kafkaTemplate.send("delete-message-events", message);
+    }
+    
+    /**
+     * Send push notification for new message
+     * Handles both one-to-one and group chat notifications
+     */
+    private void sendPushNotification(Message message, Long senderId) {
+        try {
+            // Get sender details
+            String senderName = getSenderName(senderId);
+            
+            if (message.getGroupId() != null) {
+                // Group message - send to all group members except sender
+                sendGroupMessageNotification(message, senderName);
+            } else if (message.getRecipientId() != null) {
+                // One-to-one message - send to recipient
+                sendOneToOneMessageNotification(message, senderName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send push notification for message: {}", message.getId(), e);
+            // Don't throw - notification failure shouldn't block message sending
+        }
+    }
+    
+    /**
+     * Send notification for one-to-one message
+     */
+    private void sendOneToOneMessageNotification(Message message, String senderName) {
+        try {
+            notificationClient.sendMessageNotification(
+                message.getRecipientId(),
+                senderName,
+                message.getContent(),
+                message.getSenderId(),
+                message.getId()
+            );
+            log.info("Push notification sent to user: {}", message.getRecipientId());
+        } catch (Exception e) {
+            log.error("Failed to send one-to-one message notification", e);
+        }
+    }
+    
+    /**
+     * Send notification for group message
+     */
+    private void sendGroupMessageNotification(Message message, String senderName) {
+        try {
+            Group group = groupRepository.findById(message.getGroupId()).orElse(null);
+            if (group == null) {
+                log.warn("Group not found for notification: {}", message.getGroupId());
+                return;
+            }
+            
+            // Send to all group members except the sender
+            group.getMembers().stream()
+                .filter(member -> !member.getUserId().equals(message.getSenderId()))
+                .forEach(member -> {
+                    try {
+                        String notificationBody = message.getContent();
+                        if (notificationBody.length() > 100) {
+                            notificationBody = notificationBody.substring(0, 97) + "...";
+                        }
+                        
+                        notificationClient.sendMessageNotification(
+                            member.getUserId(),
+                            senderName + " in " + group.getName(),
+                            notificationBody,
+                            message.getSenderId(),
+                            message.getId()
+                        );
+                    } catch (Exception e) {
+                        log.error("Failed to send group notification to user: {}", member.getUserId(), e);
+                    }
+                });
+            
+            log.info("Push notifications sent to {} group members", group.getMembers().size() - 1);
+        } catch (Exception e) {
+            log.error("Failed to send group message notification", e);
+        }
+    }
+    
+    /**
+     * Get sender name from User Service
+     */
+    private String getSenderName(Long senderId) {
+        try {
+            UserServiceClient.UserDto user = userServiceClient.getUserById(senderId);
+            return (user != null && user.getName() != null) ? user.getName() : "User";
+        } catch (Exception e) {
+            log.error("Failed to get sender name for user: {}", senderId, e);
+            return "User"; // Fallback
+        }
     }
     
     private boolean isUserInGroup(Long userId, String groupId) {

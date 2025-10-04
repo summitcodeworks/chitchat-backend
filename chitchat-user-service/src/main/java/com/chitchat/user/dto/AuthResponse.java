@@ -48,6 +48,19 @@ public class AuthResponse {
     private String accessToken;
     
     /**
+     * Refresh token for obtaining new access tokens
+     * 
+     * This token is used to get a new access token when the current one expires.
+     * It has a longer expiration time (typically 30 days).
+     * 
+     * Usage:
+     * - Store securely on client
+     * - Use to refresh access token via /api/users/refresh-token endpoint
+     * - Rotate after each use for better security
+     */
+    private String refreshToken;
+    
+    /**
      * Type of token (always "Bearer" for JWT)
      * 
      * Indicates the token scheme.
@@ -56,16 +69,26 @@ public class AuthResponse {
     private String tokenType;
     
     /**
-     * Token expiration time in seconds
+     * Access token expiration time in seconds
      * 
-     * Example: 86400 = 24 hours
+     * Example: 3600 = 1 hour
      * 
      * Client should:
      * - Track when token expires
-     * - Request new token before expiration
+     * - Request new token before expiration using refresh token
      * - Handle token refresh or re-login
      */
     private Long expiresIn;
+    
+    /**
+     * Refresh token expiration time in seconds
+     * 
+     * Example: 2592000 = 30 days
+     * 
+     * Client should track when refresh token expires.
+     * When it expires, user must re-authenticate.
+     */
+    private Long refreshExpiresIn;
     
     /**
      * User profile information

@@ -96,6 +96,7 @@ public class SecurityConfig {
                     "/api/users/authenticate",       // Firebase token authentication
                     "/api/users/send-otp",           // SMS OTP request
                     "/api/users/verify-otp",         // SMS OTP verification
+                    "/api/users/refresh-token",      // Refresh access token
                     "/api/users/register",           // Legacy registration
                     "/api/users/login",              // Legacy login
                     "/api/users/phone/**",           // Phone number checks

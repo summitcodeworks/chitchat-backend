@@ -194,4 +194,16 @@ public interface UserService {
      * @return Optional containing User entity if found
      */
     java.util.Optional<com.chitchat.user.entity.User> findUserByPhoneNumber(String phoneNumber);
+    
+    /**
+     * Refresh access token using refresh token
+     * 
+     * Validates the refresh token and issues a new access token.
+     * The old refresh token is revoked and a new one is issued (token rotation).
+     * 
+     * @param request Contains the refresh token
+     * @return AuthResponse with new access token and refresh token
+     * @throws ChitChatException if refresh token is invalid or expired
+     */
+    AuthResponse refreshAccessToken(RefreshTokenRequest request);
 }

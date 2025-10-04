@@ -25,15 +25,21 @@ import lombok.NoArgsConstructor;
  * - Must start with + followed by country code
  * - Total length: 1-15 digits after +
  * 
- * Valid Examples:
- * - +14155552671 (US)
- * - +919876543210 (India)
- * - +447911123456 (UK)
+ * Valid Examples (all formats accepted):
+ * - +14155552671 (standard international)
+ * - 14155552671 (without +)
+ * - +1 415 555 2671 (with spaces)
+ * - (415) 555-2671 (with parentheses and hyphens)
+ * - +1-415-555-2671 (with hyphens)
+ * - +91 892 960 7491 (India with spaces)
+ * - (91) 892-960-7491 (mixed formatting)
+ * 
+ * All formatting is automatically removed and stored as: 14155552671
  * 
  * Invalid Examples:
- * - 4155552671 (missing +)
- * - +1 415 555 2671 (contains spaces)
- * - (415) 555-2671 (contains formatting)
+ * - abc123 (contains letters)
+ * - 123 (too short)
+ * - +1 415 555 2671 ext 123 (contains text)
  */
 @Data
 @Builder
@@ -42,25 +48,28 @@ import lombok.NoArgsConstructor;
 public class SendOtpRequest {
     
     /**
-     * Phone number in E.164 international format
+     * Phone number in international format (flexible)
      * 
-     * Format: +[country code][number]
-     * E.164 Standard ensures globally unique phone numbers
+     * Accepts various formats - all formatting will be automatically removed:
+     * - +918929607491
+     * - 918929607491
+     * - +1 415 555 2671
+     * - (415) 555-2671
+     * - +1-415-555-2671
      * 
      * Validation:
      * - @NotBlank: Cannot be null or empty
-     * - @Pattern: Must match E.164 format regex
+     * - @Pattern: Flexible pattern that accepts digits with optional formatting
      * 
-     * The regex ^\\+[1-9]\\d{1,14}$ breaks down as:
-     * - ^ - Start of string
-     * - \\+ - Literal + sign
-     * - [1-9] - Country code first digit (1-9, never 0)
-     * - \\d{1,14} - Remaining 1-14 digits
-     * - $ - End of string
+     * The regex allows:
+     * - Optional + at start
+     * - Digits with optional spaces, parentheses, hyphens, dots
+     * - Must contain at least some digits
      * 
-     * This ensures valid international phone numbers only.
+     * All formatting characters (spaces, parentheses, hyphens, dots) are automatically
+     * removed before storage, resulting in clean international phone numbers.
      */
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^\\+[1-9]\\d{1,14}$", message = "Phone number must be in international format (e.g., +1234567890)")
+    @Pattern(regexp = "^[\\+\\d\\s\\(\\)\\-\\.]{7,20}$", message = "Phone number must contain 7-20 characters including digits and optional formatting (+, spaces, parentheses, hyphens)")
     private String phoneNumber;
 }

@@ -26,8 +26,9 @@ public class SendMessageRequest {
     @NotBlank(message = "Message content is required")
     private String content;
     
-    @NotNull(message = "Message type is required")
-    private Message.MessageType type;
+    // Optional - defaults to TEXT if not provided
+    @Builder.Default
+    private Message.MessageType type = Message.MessageType.TEXT;
     
     private String mediaUrl;
     private String thumbnailUrl;

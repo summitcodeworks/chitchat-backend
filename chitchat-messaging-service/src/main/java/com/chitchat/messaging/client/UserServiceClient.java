@@ -1,19 +1,65 @@
 package com.chitchat.messaging.client;
 
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 /**
- * Feign client for User Service
+ * Client for calling User Service APIs
  */
-@FeignClient(name = "chitchat-user-service")
-public interface UserServiceClient {
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class UserServiceClient {
+    
+    private final RestTemplate restTemplate;
+    private static final String USER_SERVICE_URL = "http://localhost:9102";
     
     /**
-     * Get user ID by Firebase UID
+     * Get user details by user ID
      */
-    @GetMapping("/api/users/firebase-uid/{firebaseUid}")
-    Long getUserIdByFirebaseUid(@PathVariable String firebaseUid, @RequestHeader("Authorization") String token);
+    public UserDto getUserById(Long userId) {
+        try {
+            String url = USER_SERVICE_URL + "/api/users/" + userId;
+            ApiResponse response = restTemplate.getForObject(url, ApiResponse.class);
+            
+            if (response != null && response.isSuccess() && response.getData() != null) {
+                // Convert LinkedHashMap to UserDto
+                Object data = response.getData();
+                if (data instanceof java.util.Map) {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> map = (java.util.Map<String, Object>) data;
+                    UserDto user = new UserDto();
+                    user.setId(userId);
+                    user.setName((String) map.get("name"));
+                    user.setPhoneNumber((String) map.get("phoneNumber"));
+                    user.setAvatarUrl((String) map.get("avatarUrl"));
+                    user.setAbout((String) map.get("about"));
+                    return user;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Error fetching user by ID: {}", userId, e);
+            return null;
+        }
+    }
+    
+    @Data
+    public static class ApiResponse {
+        private boolean success;
+        private String message;
+        private Object data;
+    }
+    
+    @Data
+    public static class UserDto {
+        private Long id;
+        private String phoneNumber;
+        private String name;
+        private String avatarUrl;
+        private String about;
+    }
 }

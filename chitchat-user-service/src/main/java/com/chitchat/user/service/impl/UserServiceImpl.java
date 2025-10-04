@@ -3,6 +3,7 @@ package com.chitchat.user.service.impl;
 import com.chitchat.shared.exception.ChitChatException;
 import com.chitchat.user.dto.*;
 import com.chitchat.user.entity.Block;
+import com.chitchat.user.entity.RefreshToken;
 import com.chitchat.user.entity.User;
 import com.chitchat.user.repository.BlockRepository;
 import com.chitchat.user.repository.UserRepository;
@@ -10,6 +11,7 @@ import com.chitchat.user.service.UserService;
 import com.chitchat.user.service.JwtService;
 import com.chitchat.user.service.FirebaseService;
 import com.chitchat.user.service.TwilioService;
+import com.chitchat.user.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,15 +35,33 @@ public class UserServiceImpl implements UserService {
     private final JwtService jwtService;
     private final FirebaseService firebaseService;
     private final TwilioService twilioService;
+    private final RefreshTokenService refreshTokenService;
+    private final com.chitchat.shared.service.ConfigurationService configurationService;
 
     /**
-     * Normalize phone number by trimming and removing + sign for database search
+     * Normalize phone number by removing all formatting characters
+     * Accepts formats like:
+     * - +918929607491
+     * - 918929607491
+     * - +1 415 555 2671
+     * - (415) 555-2671
+     * - +1-415-555-2671
+     * 
+     * All are converted to: 918929607491 or 14155552671 (digits only, no +)
      */
     private String normalizePhoneNumber(String phoneNumber) {
         if (phoneNumber == null) {
             return null;
         }
-        return phoneNumber.trim().replaceAll("^\\+", "");
+        // Remove all spaces, parentheses, hyphens, and other formatting characters
+        // Keep only digits and the leading + (if present)
+        String cleaned = phoneNumber.trim()
+                .replaceAll("[\\s\\(\\)\\-\\.]", "");  // Remove spaces, (), -, .
+        
+        // Remove leading + sign
+        cleaned = cleaned.replaceAll("^\\+", "");
+        
+        return cleaned;
     }
 
     @Override
@@ -80,13 +100,22 @@ public class UserServiceImpl implements UserService {
                 log.info("Existing user authenticated via Firebase: {}", user.getId());
             }
 
-            // Generate JWT token
+            // Generate JWT access token
             String jwtToken = jwtService.generateToken(user);
+            
+            // Generate refresh token
+            RefreshToken refreshToken = refreshTokenService.generateRefreshToken(user, null, null);
+            
+            // Get expiration times from config
+            Long accessTokenExpiration = configurationService.getJwtExpiration();
+            Long refreshTokenExpiration = configurationService.getConfigValueAsLong("jwt.refresh.expiration", 2592000L);
 
             return AuthResponse.builder()
                     .accessToken(jwtToken)
+                    .refreshToken(refreshToken.getToken())
                     .tokenType("Bearer")
-                    .expiresIn(3600L)
+                    .expiresIn(accessTokenExpiration)
+                    .refreshExpiresIn(refreshTokenExpiration)
                     .user(mapToUserResponse(user))
                     .message("Firebase authentication successful")
                     .build();
@@ -125,13 +154,24 @@ public class UserServiceImpl implements UserService {
         
         user = userRepository.save(user);
         
-        // Generate JWT token
+        // Generate JWT access token
         String token = jwtService.generateToken(user);
+        
+        // Generate refresh token
+        RefreshToken refreshToken = refreshTokenService.generateRefreshToken(user, null, null);
+        
+        // Get expiration times from config
+        Long accessTokenExpiration = configurationService.getJwtExpiration();
+        Long refreshTokenExpiration = configurationService.getConfigValueAsLong("jwt.refresh.expiration", 2592000L);
         
         log.info("User registered successfully with ID: {}", user.getId());
         
         return AuthResponse.builder()
                 .accessToken(token)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration)
+                .refreshExpiresIn(refreshTokenExpiration)
                 .user(mapToUserResponse(user))
                 .message("User registered successfully")
                 .build();
@@ -153,13 +193,24 @@ public class UserServiceImpl implements UserService {
         user.setIsOnline(true);
         userRepository.save(user);
         
-        // Generate JWT token
+        // Generate JWT access token
         String token = jwtService.generateToken(user);
+        
+        // Generate refresh token
+        RefreshToken refreshToken = refreshTokenService.generateRefreshToken(user, null, null);
+        
+        // Get expiration times from config
+        Long accessTokenExpiration = configurationService.getJwtExpiration();
+        Long refreshTokenExpiration = configurationService.getConfigValueAsLong("jwt.refresh.expiration", 2592000L);
         
         log.info("User logged in successfully with ID: {}", user.getId());
         
         return AuthResponse.builder()
                 .accessToken(token)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration)
+                .refreshExpiresIn(refreshTokenExpiration)
                 .user(mapToUserResponse(user))
                 .message("Login successful")
                 .build();
@@ -405,8 +456,15 @@ public class UserServiceImpl implements UserService {
             log.info("New user registered for phone number: {}", cleanPhoneNumber);
         }
 
-        // Generate JWT token
+        // Generate JWT access token
         String token = jwtService.generateToken(user);
+        
+        // Generate refresh token
+        RefreshToken refreshToken = refreshTokenService.generateRefreshToken(user, null, null);
+        
+        // Get expiration times from config
+        Long accessTokenExpiration = configurationService.getJwtExpiration();
+        Long refreshTokenExpiration = configurationService.getConfigValueAsLong("jwt.refresh.expiration", 2592000L);
 
         // Update user status
         user.setIsOnline(true);
@@ -424,8 +482,10 @@ public class UserServiceImpl implements UserService {
 
         return AuthResponse.builder()
                 .accessToken(token)
+                .refreshToken(refreshToken.getToken())
                 .tokenType("Bearer")
-                .expiresIn(3600L) // 1 hour
+                .expiresIn(accessTokenExpiration)
+                .refreshExpiresIn(refreshTokenExpiration)
                 .user(mapToUserResponse(user))
                 .message(isNewUser ? "User registered and authenticated successfully" : "Login successful")
                 .build();
@@ -510,5 +570,46 @@ public class UserServiceImpl implements UserService {
     @Override
     public java.util.Optional<User> findUserByPhoneNumber(String phoneNumber) {
         return userRepository.findByPhoneNumber(phoneNumber);
+    }
+    
+    @Override
+    @Transactional
+    public AuthResponse refreshAccessToken(RefreshTokenRequest request) {
+        log.info("Processing refresh token request");
+        
+        // Validate refresh token
+        RefreshToken refreshToken = refreshTokenService.validateRefreshToken(request.getRefreshToken());
+        
+        // Get user
+        User user = userRepository.findById(refreshToken.getUserId())
+                .orElseThrow(() -> new ChitChatException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+        
+        // Generate new access token
+        String newAccessToken = jwtService.generateToken(user);
+        
+        // Update last used time for refresh token
+        refreshTokenService.updateLastUsed(refreshToken);
+        
+        // Generate new refresh token (token rotation for security)
+        RefreshToken newRefreshToken = refreshTokenService.generateRefreshToken(user, null, null);
+        
+        // Revoke old refresh token
+        refreshTokenService.revokeRefreshToken(refreshToken.getToken());
+        
+        // Get expiration times from config
+        Long accessTokenExpiration = configurationService.getJwtExpiration();
+        Long refreshTokenExpiration = configurationService.getConfigValueAsLong("jwt.refresh.expiration", 2592000L);
+        
+        log.info("Access token refreshed successfully for user ID: {}", user.getId());
+        
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration)
+                .refreshExpiresIn(refreshTokenExpiration)
+                .user(mapToUserResponse(user))
+                .message("Token refreshed successfully")
+                .build();
     }
 }

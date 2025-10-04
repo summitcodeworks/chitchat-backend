@@ -44,11 +44,13 @@ public class UserController {
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<Void>> sendOtp(@Valid @RequestBody SendOtpRequest request,
                                                      HttpServletRequest httpRequest) {
-        log.info("Send OTP request received for phone: {}", request.getPhoneNumber());
+        // Normalize phone number (remove spaces, parentheses, hyphens, dots, and leading +)
+        String normalizedPhone = normalizePhoneNumber(request.getPhoneNumber());
+        log.info("Send OTP request received for phone: {} (normalized: {})", request.getPhoneNumber(), normalizedPhone);
 
-        // Check rate limiting
-        if (otpRequestService.hasExceededRequestLimit(request.getPhoneNumber(), 5, 15)) {
-            log.warn("Rate limit exceeded for phone: {}", request.getPhoneNumber());
+        // Check rate limiting using normalized phone number
+        if (otpRequestService.hasExceededRequestLimit(normalizedPhone, 5, 15)) {
+            log.warn("Rate limit exceeded for phone: {}", normalizedPhone);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Too many OTP requests. Please try again later."));
         }
@@ -61,13 +63,13 @@ public class UserController {
 
         log.info("OTP request context - IP: {}, User-Agent: {}", requestIp, userAgent);
 
-        // Generate OTP
-        String otp = otpService.generateOtp(request.getPhoneNumber());
-        log.info("Generated OTP for phone: {}", request.getPhoneNumber());
+        // Generate OTP using normalized phone number
+        String otp = otpService.generateOtp(normalizedPhone);
+        log.info("Generated OTP for phone: {}", normalizedPhone);
 
-        // Create OTP request record
+        // Create OTP request record with normalized phone number
         OtpRequest otpRequestRecord = OtpRequest.builder()
-            .phoneNumber(request.getPhoneNumber())
+            .phoneNumber(normalizedPhone)
             .otpCode(otp)
             .requestIp(requestIp)
             .userAgent(userAgent)
@@ -80,13 +82,13 @@ public class UserController {
         otpRequestRecord = otpRequestService.saveOtpRequest(otpRequestRecord);
         log.info("Saved OTP request to database with ID: {}", otpRequestRecord.getId());
 
-        // Send OTP via SMS
+        // Send OTP via SMS using normalized phone number
         boolean smsSent = false;
         String smsErrorMessage = null;
         String twilioMessageSid = null;
 
         try {
-            smsSent = twilioService.sendOtpSms(request.getPhoneNumber(), otp);
+            smsSent = twilioService.sendOtpSms(normalizedPhone, otp);
             if (smsSent) {
                 log.info("SMS sent successfully for OTP request ID: {}", otpRequestRecord.getId());
             }
@@ -188,13 +190,15 @@ public class UserController {
     
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        log.info("Verify OTP request received for phone: {}", request.getPhoneNumber());
+        // Normalize phone number
+        String normalizedPhone = normalizePhoneNumber(request.getPhoneNumber());
+        log.info("Verify OTP request received for phone: {} (normalized: {})", request.getPhoneNumber(), normalizedPhone);
 
-        // Find OTP in database first
-        var otpRecord = otpRequestService.findOtpForVerification(request.getPhoneNumber(), request.getOtp());
+        // Find OTP in database first using normalized phone number
+        var otpRecord = otpRequestService.findOtpForVerification(normalizedPhone, request.getOtp());
 
         if (otpRecord.isEmpty()) {
-            log.warn("Invalid or expired OTP for phone: {}", request.getPhoneNumber());
+            log.warn("Invalid or expired OTP for phone: {}", normalizedPhone);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Invalid or expired OTP"));
         }
@@ -211,23 +215,23 @@ public class UserController {
                 .body(ApiResponse.error("Too many verification attempts. Please request a new OTP."));
         }
 
-        // Verify OTP using both database and Redis (double verification)
-        boolean isValidOtp = otpService.verifyOtp(request.getPhoneNumber(), request.getOtp());
+        // Verify OTP using both database and Redis (double verification) with normalized phone
+        boolean isValidOtp = otpService.verifyOtp(normalizedPhone, request.getOtp());
 
         if (!isValidOtp) {
-            log.warn("OTP verification failed for phone: {}", request.getPhoneNumber());
+            log.warn("OTP verification failed for phone: {}", normalizedPhone);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Invalid or expired OTP"));
         }
 
         // Mark OTP as verified in database
         otpRequestService.markAsVerified(otpRequest.getId());
-        log.info("OTP verified successfully for phone: {}", request.getPhoneNumber());
+        log.info("OTP verified successfully for phone: {}", normalizedPhone);
 
-        // Authenticate user (login or register)
-        AuthResponse response = userService.authenticateWithPhoneNumber(request.getPhoneNumber());
+        // Authenticate user (login or register) with normalized phone number
+        AuthResponse response = userService.authenticateWithPhoneNumber(normalizedPhone);
 
-        log.info("User authentication completed for phone: {}", request.getPhoneNumber());
+        log.info("User authentication completed for phone: {}", normalizedPhone);
         return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
     }
 
@@ -235,6 +239,13 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse>> authenticateWithFirebase(@Valid @RequestBody FirebaseAuthRequest request) {
         log.info("Firebase authentication request received");
         AuthResponse response = userService.authenticateWithFirebase(request);
+        return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
+    }
+    
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        log.info("Refresh token request received");
+        AuthResponse response = userService.refreshAccessToken(request);
         return ResponseEntity.ok(ApiResponse.success(response, response.getMessage()));
     }
 
@@ -494,5 +505,31 @@ public class UserController {
             log.warn("Failed to serialize object to JSON: {}", e.getMessage());
             return "Unable to serialize: " + e.getMessage();
         }
+    }
+    
+    /**
+     * Normalize phone number by removing all formatting characters
+     * Accepts formats like:
+     * - +918929607491
+     * - 918929607491
+     * - +1 415 555 2671
+     * - (415) 555-2671
+     * - +1-415-555-2671
+     * 
+     * All are converted to: 918929607491 or 14155552671 (digits only, no +)
+     */
+    private String normalizePhoneNumber(String phoneNumber) {
+        if (phoneNumber == null) {
+            return null;
+        }
+        // Remove all spaces, parentheses, hyphens, and other formatting characters
+        // Keep only digits and the leading + (if present)
+        String cleaned = phoneNumber.trim()
+                .replaceAll("[\\s\\(\\)\\-\\.]", "");  // Remove spaces, (), -, .
+        
+        // Remove leading + sign
+        cleaned = cleaned.replaceAll("^\\+", "");
+        
+        return cleaned;
     }
 }

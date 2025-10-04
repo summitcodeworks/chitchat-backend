@@ -575,8 +575,10 @@ curl -X POST http://localhost:9101/api/users/verify-otp \
   "message": "Login successful",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "550e8400-e29b-41d4-a716-446655440000",
     "tokenType": "Bearer",
     "expiresIn": 3600,
+    "refreshExpiresIn": 2592000,
     "user": { /* user details */ },
     "message": "Login successful"
   }
@@ -590,8 +592,10 @@ curl -X POST http://localhost:9101/api/users/verify-otp \
   "message": "User registered and authenticated successfully",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "550e8400-e29b-41d4-a716-446655440000",
     "tokenType": "Bearer",
     "expiresIn": 3600,
+    "refreshExpiresIn": 2592000,
     "user": { /* user details */ },
     "message": "User registered and authenticated successfully"
   }
@@ -609,6 +613,48 @@ curl -X POST http://localhost:9101/api/messages/send \
     "receiverId": 4
   }'
 ```
+
+#### 4. Refresh Access Token (When Access Token Expires)
+```bash
+curl -X POST http://localhost:9101/api/users/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "your-refresh-token-here"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Token refreshed successfully",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "new-refresh-token-here",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "refreshExpiresIn": 2592000,
+    "user": {
+      "id": 1,
+      "phoneNumber": "18777804236",
+      "name": "User",
+      "avatarUrl": null,
+      "about": "Hey there! I'm using ChitChat.",
+      "lastSeen": "2025-10-03T14:30:00",
+      "isOnline": true,
+      "createdAt": "2025-10-03T10:00:00"
+    },
+    "message": "Token refreshed successfully"
+  }
+}
+```
+
+**Notes:**
+- Access tokens expire in 1 hour (3600 seconds)
+- Refresh tokens expire in 30 days (2592000 seconds)
+- After using a refresh token, you get a NEW access token and a NEW refresh token
+- The old refresh token is automatically revoked for security (token rotation)
+- Store the new refresh token for future use
 
 ### Firebase Token Authentication (Legacy)
 
@@ -2170,9 +2216,17 @@ For issues and support:
 ### What's New:
 - ✅ **Added:** `/api/users/send-otp` endpoint for SMS OTP sending
 - ✅ **Added:** `/api/users/verify-otp` endpoint for SMS OTP verification
+- ✅ **Added:** `/api/users/refresh-token` endpoint for token refresh
+- ✅ **Integrated:** Refresh token mechanism with automatic token rotation
 - ✅ **Integrated:** Twilio SMS service for OTP delivery
 - ✅ **Enhanced:** Redis-based OTP storage with 5-minute expiration
 - ✅ **Maintained:** Firebase token authentication for backward compatibility
+
+### Token Management:
+1. **Access Tokens:** Short-lived (1 hour) tokens for API requests
+2. **Refresh Tokens:** Long-lived (30 days) tokens to obtain new access tokens
+3. **Token Rotation:** Old refresh tokens are revoked when new ones are issued
+4. **Automatic Cleanup:** Expired tokens are periodically removed from database
 
 ### SMS Authentication Benefits:
 1. **No Frontend Dependencies:** No need for Firebase SDK integration

@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO for legacy user login request (deprecated - use FirebaseAuthRequest instead)
+ * Accepts phone numbers in various formats with automatic formatting removal
  * @deprecated Use FirebaseAuthRequest for new implementations
  */
 @Data
@@ -19,7 +20,7 @@ import lombok.NoArgsConstructor;
 public class UserLoginRequest {
     
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^\\+[1-9]\\d{1,14}$", message = "Invalid phone number format")
+    @Pattern(regexp = "^[\\+\\d\\s\\(\\)\\-\\.]{7,20}$", message = "Phone number must contain 7-20 characters including digits and optional formatting")
     private String phoneNumber;
     
     @NotBlank(message = "OTP is required")

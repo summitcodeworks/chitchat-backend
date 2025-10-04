@@ -9,6 +9,14 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO for verifying OTP request
+ * 
+ * Accepts phone numbers in various formats:
+ * - +918929607491
+ * - 918929607491
+ * - +1 415 555 2671
+ * - (415) 555-2671
+ * 
+ * All formatting (spaces, parentheses, hyphens, dots) is automatically removed.
  */
 @Data
 @Builder
@@ -17,7 +25,7 @@ import lombok.NoArgsConstructor;
 public class VerifyOtpRequest {
     
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^\\+[1-9]\\d{1,14}$", message = "Phone number must be in international format (e.g., +1234567890)")
+    @Pattern(regexp = "^[\\+\\d\\s\\(\\)\\-\\.]{7,20}$", message = "Phone number must contain 7-20 characters including digits and optional formatting")
     private String phoneNumber;
     
     @NotBlank(message = "OTP is required")
