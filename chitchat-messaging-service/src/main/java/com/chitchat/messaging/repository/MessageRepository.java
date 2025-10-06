@@ -3,6 +3,7 @@ package com.chitchat.messaging.repository;
 import com.chitchat.messaging.document.Message;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.Aggregation;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -171,4 +172,103 @@ public interface MessageRepository extends MongoRepository<Message, String> {
      */
     @Query("{ groupId: ?0, createdAt: { $gte: ?1 } }")
     List<Message> findRecentGroupMessages(String groupId, LocalDateTime since);
+    
+    /**
+     * Finds all unique conversation partners for a user
+     * 
+     * Returns distinct user IDs that the given user has had conversations with.
+     * Used for building conversation list.
+     * 
+     * MongoDB Aggregation:
+     * 1. Match messages where user is sender or recipient
+     * 2. Project the other user's ID (if user is sender, get recipientId, vice versa)
+     * 3. Group by other user's ID to get unique conversation partners
+     * 
+     * @param userId User ID to find conversation partners for
+     * @return List of user IDs that have conversations with the given user
+     */
+    @Query(value = "{ $or: [ { senderId: ?0 }, { recipientId: ?0 } ] }", fields = "{ senderId: 1, recipientId: 1 }")
+    List<Message> findConversationPartners(Long userId);
+    
+    /**
+     * Finds the latest message in each conversation for a user
+     * 
+     * Used for conversation list to show most recent message.
+     * Returns one message per conversation (the latest one).
+     * 
+     * MongoDB Aggregation Pipeline:
+     * 1. Match messages where user is involved
+     * 2. Add computed field for conversation partner ID
+     * 3. Sort by createdAt descending
+     * 4. Group by conversation partner to get latest message per conversation
+     * 5. Sort results by latest message time descending
+     * 
+     * @param userId User ID to get conversations for
+     * @return List of latest messages for each conversation
+     */
+    @Aggregation(pipeline = {
+        "{ $match: { $or: [ { senderId: ?0 }, { recipientId: ?0 } ] } }",
+        "{ $addFields: { conversationPartner: { $cond: [ { $eq: ['$senderId', ?0] }, '$recipientId', '$senderId' ] } } }",
+        "{ $sort: { createdAt: -1 } }",
+        "{ $group: { _id: '$conversationPartner', latestMessage: { $first: '$$ROOT' } } }",
+        "{ $replaceRoot: { newRoot: '$latestMessage' } }",
+        "{ $sort: { createdAt: -1 } }"
+    })
+    List<Message> findLatestMessagesForConversations(Long userId);
+    
+    /**
+     * Counts unread messages for each conversation partner
+     * 
+     * Returns unread message count for each user the given user has conversations with.
+     * Used for showing unread badges in conversation list.
+     * 
+     * MongoDB Aggregation Pipeline:
+     * 1. Match messages where user is recipient and status is DELIVERED (unread)
+     * 2. Group by sender ID to count unread messages per sender
+     * 
+     * @param userId User ID to count unread messages for
+     * @return List of unread counts per conversation partner
+     */
+    @Aggregation(pipeline = {
+        "{ $match: { recipientId: ?0, status: 'DELIVERED' } }",
+        "{ $group: { _id: '$senderId', unreadCount: { $sum: 1 } } }"
+    })
+    List<UnreadCountResult> findUnreadCountsBySender(Long userId);
+    
+    /**
+     * Counts total unread messages for a user (messages sent TO the user)
+     * 
+     * Returns total count of unread messages where the user is the recipient.
+     * Used for showing total unread count badge in the app header.
+     * 
+     * MongoDB Query:
+     * - recipientId: User ID (messages sent TO this user)
+     * - status: 'DELIVERED' (messages that are delivered but not read yet)
+     * 
+     * @param userId User ID to count total unread messages for
+     * @return Total count of unread messages
+     */
+    @Query(value = "{ recipientId: ?0, status: 'DELIVERED' }", count = true)
+    long countTotalUnreadMessages(Long userId);
+    
+    /**
+     * Result class for unread count aggregation
+     */
+    class UnreadCountResult {
+        private Long senderId;
+        private Long unreadCount;
+        
+        public UnreadCountResult() {}
+        
+        public UnreadCountResult(Long senderId, Long unreadCount) {
+            this.senderId = senderId;
+            this.unreadCount = unreadCount;
+        }
+        
+        public Long getSenderId() { return senderId; }
+        public void setSenderId(Long senderId) { this.senderId = senderId; }
+        
+        public Long getUnreadCount() { return unreadCount; }
+        public void setUnreadCount(Long unreadCount) { this.unreadCount = unreadCount; }
+    }
 }

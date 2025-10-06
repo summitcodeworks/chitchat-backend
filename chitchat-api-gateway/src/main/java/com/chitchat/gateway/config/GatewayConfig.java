@@ -32,7 +32,7 @@ public class GatewayConfig {
                 
                 // Notification Service Routes
                 .route("notification-service", r -> r.path("/api/notifications/**")
-                        .uri("lb://chitchat-notification-service"))
+                        .uri("lb://CHITCHAT-NOTIFICATION-SERVICE"))
                 
                 // Status Service Routes
                 .route("status-service", r -> r.path("/api/status/**")

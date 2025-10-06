@@ -1,9 +1,18 @@
 server:
   port: 9102
+  tomcat:
+    threads:
+      max: 50                    # Reduced from default 200
+      min-spare: 5              # Reduced from default 10
+    max-connections: 8192       # Reduced from default 8192
+    accept-count: 100           # Reduced from default 100
+    connection-timeout: 20000   # 20 seconds
 
 spring:
   application:
     name: chitchat-user-service
+  main:
+    allow-circular-references: false
   cloud:
     compatibility-verifier:
       enabled: false
@@ -16,8 +25,8 @@ spring:
       maximum-pool-size: 2      # Further reduced for low-resource system
       minimum-idle: 1           # Minimal idle connections
       connection-timeout: 30000 # 30 seconds
-      idle-timeout: 300000      # 5 minutes (reduced)
-      max-lifetime: 900000      # 15 minutes (reduced)
+      idle-timeout: 600000      # 10 minutes
+      max-lifetime: 1800000     # 30 minutes
       leak-detection-threshold: 60000
   jpa:
     hibernate:
@@ -36,57 +45,52 @@ spring:
     host: localhost
     port: 6379
     timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 5           # Reduced from default 8
+        max-idle: 2             # Reduced from default 8
+        min-idle: 1             # Reduced from default 0
+        max-wait: 2000ms
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: user-service-group
       auto-offset-reset: earliest
+      max-poll-records: 100     # Reduced from default 500
+      session-timeout-ms: 30000
+      heartbeat-interval-ms: 10000
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      batch-size: 16384         # Optimize batch size
+      linger-ms: 5
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=600s
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 30
   instance:
     prefer-ip-address: true
-
-# Configuration is now loaded from database via ConfigurationService
-# See database/init-postgres.sql for configuration values
-
-jwt:
-  secret: ${JWT_SECRET:3703ea2161827e52832c162790d1a511e2a7aa22120c34f6d620e703d876697b}  # Fallback only
-  expiration: ${JWT_EXPIRATION:3600}  # Fallback only
-
-twilio:
-  account:
-    sid: ${TWILIO_ACCOUNT_SID:}  # Fallback only
-  auth:
-    token: ${TWILIO_AUTH_TOKEN:}  # Fallback only
-  phone:
-    number: ${TWILIO_PHONE_NUMBER:}  # Fallback only
-
-firebase:
-  project-id: ${FIREBASE_PROJECT_ID:chitchat-9c074}  # Fallback only
-  web-api-key: ${FIREBASE_WEB_API_KEY:}  # Fallback only
-  auth-domain: ${FIREBASE_AUTH_DOMAIN:chitchat-9c074.firebaseapp.com}  # Fallback only
-  storage-bucket: ${FIREBASE_STORAGE_BUCKET:chitchat-9c074.firebasestorage.app}  # Fallback only
-  messaging-sender-id: 508577813087
-  app-id: 1:508577813087:web:8768669bde9c08b1f5c1ea
-  measurement-id: G-6X3E3LRN8Z
-  credentials-path: classpath:firebase-service-account.json
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
 
 logging:
   level:
@@ -94,3 +98,21 @@ logging:
     org.springframework.web: WARN # Reduced from DEBUG
     org.hibernate.SQL: WARN      # Reduced SQL logging
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+jwt:
+  secret: ${JWT_SECRET:3703ea2161827e52832c162790d1a511e2a7aa22120c34f6d620e703d876697b}
+  expiration: ${JWT_EXPIRATION:3600}
+
+twilio:
+  account:
+    sid: ${TWILIO_ACCOUNT_SID:}
+  auth:
+    token: ${TWILIO_AUTH_TOKEN:}
+  phone:
+    number: ${TWILIO_PHONE_NUMBER:}
+
+firebase:
+  project-id: ${FIREBASE_PROJECT_ID:chitchat-9c074}

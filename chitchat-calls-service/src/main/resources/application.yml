@@ -12,14 +12,23 @@ spring:
     username: summitcodeworks
     password: 8ivhaah8
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 2      # Reduced for low-resource system
+      minimum-idle: 1           # Minimal idle connections
+      connection-timeout: 30000 # 30 seconds
+      idle-timeout: 300000      # 5 minutes
+      max-lifetime: 900000      # 15 minutes
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false             # Disabled to reduce memory and overhead
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: false       # Disabled to reduce overhead
+        jdbc:
+          batch_size: 20        # Optimize batch processing
   redis:
     host: localhost
     port: 6379

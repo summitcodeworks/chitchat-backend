@@ -1,5 +1,16 @@
 server:
   port: 9103
+  tomcat:
+    threads:
+      max: 100                   # Increased for WebSocket handling
+      min-spare: 10
+    max-connections: 8192
+    accept-count: 100
+    connection-timeout: 20000
+  servlet:
+    multipart:
+      max-file-size: 10MB        # Limit file upload size
+      max-request-size: 10MB
 
 spring:
   application:
@@ -22,11 +33,20 @@ spring:
     host: localhost
     port: 6379
     timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 5
+        max-idle: 2
+        min-idle: 1
+        max-wait: 2000ms
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: messaging-service-group
       auto-offset-reset: earliest
+      max-poll-records: 50            # Reduced for real-time processing
+      session-timeout-ms: 30000
+      heartbeat-interval-ms: 10000
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -36,13 +56,32 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+      batch-size: 16384
+      linger-ms: 5
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=2000,expireAfterWrite=300s  # Shorter cache for real-time data
+
+# WebSocket Configuration
+websocket:
+  max-sessions-per-user: 1
+  session-cleanup-interval: 30000    # 30 seconds
+  max-message-size: 8192            # 8KB limit
+  ping-interval: 30000              # 30 seconds
+  pong-timeout: 60000               # 60 seconds
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 30
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
 
 management:
   endpoints:
@@ -51,7 +90,7 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
 
 logging:
   level:
@@ -60,3 +99,6 @@ logging:
     org.springframework.web.socket: INFO
     org.springframework.kafka: WARN
     org.mongodb.driver: WARN
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

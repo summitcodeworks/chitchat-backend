@@ -21,13 +21,14 @@ public class MessageResponse {
     private String id;
     private Long senderId;
     private Long recipientId;
+    private Long receiverId; // Alternative field name for backward compatibility
     private String groupId;
     private String content;
     private Message.MessageType type;
     private Message.MessageStatus status;
     private String mediaUrl;
     private String thumbnailUrl;
-    private Long replyToMessageId;
+    private String replyToMessageId;
     private List<String> mentions;
     private LocalDateTime scheduledAt;
     private LocalDateTime deliveredAt;

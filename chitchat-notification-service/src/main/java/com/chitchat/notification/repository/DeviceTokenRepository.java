@@ -23,6 +23,8 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
     
     Optional<DeviceToken> findByUserIdAndDeviceId(Long userId, String deviceId);
     
+    Optional<DeviceToken> findByDeviceId(String deviceId);
+    
     @Query("SELECT dt FROM DeviceToken dt WHERE dt.userId = :userId AND dt.isActive = true")
     List<DeviceToken> findActiveTokensByUserId(@Param("userId") Long userId);
     

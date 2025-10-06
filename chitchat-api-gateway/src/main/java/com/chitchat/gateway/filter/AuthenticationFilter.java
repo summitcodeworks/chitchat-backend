@@ -37,6 +37,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             "/api/users/register",
             "/api/users/login",
             "/api/users/refresh-token",
+            "/api/notifications/register-device",
+            "/api/notifications/unregister-device",
             "/actuator/health",
             "/actuator/info",
             "/actuator/metrics"

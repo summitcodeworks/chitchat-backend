@@ -33,6 +33,17 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(null, "Device token registered successfully"));
     }
     
+    @PostMapping("/register-device")
+    public ResponseEntity<ApiResponse<Void>> registerDevice(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Valid @RequestBody RegisterDeviceTokenRequest request) {
+        // For device registration, we can work without user authentication
+        // The device will be associated with a user later when they log in
+        Long userId = token != null ? extractUserIdFromToken(token) : null;
+        notificationService.registerDeviceToken(userId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Device registered successfully"));
+    }
+    
     @DeleteMapping("/device-token/{deviceId}")
     public ResponseEntity<ApiResponse<Void>> unregisterDeviceToken(
             @RequestHeader("Authorization") String token,
@@ -40,6 +51,15 @@ public class NotificationController {
         Long userId = extractUserIdFromToken(token);
         notificationService.unregisterDeviceToken(userId, deviceId);
         return ResponseEntity.ok(ApiResponse.success(null, "Device token unregistered successfully"));
+    }
+    
+    @DeleteMapping("/unregister-device/{deviceId}")
+    public ResponseEntity<ApiResponse<Void>> unregisterDevice(
+            @RequestHeader("Authorization") String token,
+            @PathVariable String deviceId) {
+        Long userId = extractUserIdFromToken(token);
+        notificationService.unregisterDeviceToken(userId, deviceId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Device unregistered successfully"));
     }
     
     @PostMapping("/send")

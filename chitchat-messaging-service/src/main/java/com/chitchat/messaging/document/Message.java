@@ -171,7 +171,7 @@ public class Message {
      * - Thread navigation
      * - Context preservation
      */
-    private Long replyToMessageId;
+    private String replyToMessageId;
     
     /**
      * List of user IDs mentioned in this message

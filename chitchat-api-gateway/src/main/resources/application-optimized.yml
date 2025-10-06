@@ -1,0 +1,94 @@
+server:
+  port: 9101
+  tomcat:
+    threads:
+      max: 100
+      min-spare: 10
+    max-connections: 8192
+    accept-count: 100
+    connection-timeout: 20000
+
+spring:
+  application:
+    name: chitchat-api-gateway
+  cloud:
+    compatibility-verifier:
+      enabled: false
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://chitchat-user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=2
+        - id: messaging-service
+          uri: lb://chitchat-messaging-service
+          predicates:
+            - Path=/api/messages/**
+          filters:
+            - StripPrefix=2
+        - id: media-service
+          uri: lb://chitchat-media-service
+          predicates:
+            - Path=/api/media/**
+          filters:
+            - StripPrefix=2
+        - id: calls-service
+          uri: lb://chitchat-calls-service
+          predicates:
+            - Path=/api/calls/**
+          filters:
+            - StripPrefix=2
+        - id: notification-service
+          uri: lb://chitchat-notification-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=2
+        - id: status-service
+          uri: lb://chitchat-status-service
+          predicates:
+            - Path=/api/status/**
+          filters:
+            - StripPrefix=2
+        - id: admin-service
+          uri: lb://chitchat-admin-service
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=2
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10000
+        pool:
+          max-connections: 50
+          max-idle-time: 30000
+          max-life-time: 60000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.chitchat.gateway: INFO
+    org.springframework.cloud.gateway: WARN
+    org.springframework.web: WARN

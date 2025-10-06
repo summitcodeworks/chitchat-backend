@@ -2,7 +2,6 @@ package com.chitchat.messaging.dto;
 
 import com.chitchat.messaging.document.Message;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +20,7 @@ import java.util.List;
 public class SendMessageRequest {
     
     private Long recipientId;
+    private Long receiverId; // Alternative field name for backward compatibility
     private String groupId;
     
     @NotBlank(message = "Message content is required")
@@ -32,7 +32,7 @@ public class SendMessageRequest {
     
     private String mediaUrl;
     private String thumbnailUrl;
-    private Long replyToMessageId;
+    private String replyToMessageId;
     private List<String> mentions;
     private LocalDateTime scheduledAt;
 }

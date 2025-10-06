@@ -28,6 +28,9 @@ public class SecurityConfig {
             
             // Permit all requests - authentication is handled by API Gateway
             .authorizeHttpRequests(auth -> auth
+                // Explicitly permit WebSocket endpoints
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/sockjs-node/**").permitAll()
                 .anyRequest().permitAll()
             );
 

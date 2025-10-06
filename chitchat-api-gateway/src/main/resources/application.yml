@@ -6,6 +6,31 @@ spring:
     name: chitchat-api-gateway
   main:
     web-application-type: reactive
+  datasource:
+    url: jdbc:postgresql://ec2-65-1-185-194.ap-south-1.compute.amazonaws.com:5432/chitchat
+    username: summitcodeworks
+    password: 8ivhaah8
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 300000
+      max-lifetime: 900000
+      leak-detection-threshold: 60000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
   cloud:
     compatibility-verifier:
       enabled: false
@@ -67,8 +92,8 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  secret: 3703ea2161827e52832c162790d1a511e2a7aa22120c34f6d620e703d876697b
-  expiration: 3600
+  secret: ${JWT_SECRET:3703ea2161827e52832c162790d1a511e2a7aa22120c34f6d620e703d876697b}
+  expiration: ${JWT_EXPIRATION:3600}
 
 firebase:
   project-id: chitchat-9c074

@@ -58,6 +58,32 @@ public interface MessagingService {
     Page<MessageResponse> getConversationMessages(Long userId1, Long userId2, Pageable pageable);
     
     /**
+     * Gets conversation list for a user with latest messages and unread counts
+     * 
+     * Returns all conversations the user has participated in, ordered by latest message time.
+     * Each conversation includes:
+     * - Other user's details (name, avatar, online status)
+     * - Latest message content and timestamp
+     * - Unread message count
+     * - Typing indicator status
+     * 
+     * @param userId User ID to get conversations for
+     * @return List of ConversationResponse objects
+     */
+    List<ConversationResponse> getConversationList(Long userId);
+    
+    /**
+     * Gets total unread message count for a user
+     * 
+     * Returns the total number of unread messages sent TO the user (recipient).
+     * Used for showing unread count badge in app header.
+     * 
+     * @param userId User ID to count unread messages for
+     * @return Total count of unread messages
+     */
+    long getTotalUnreadCount(Long userId);
+    
+    /**
      * Gets paginated messages for a specific group
      * 
      * Returns messages in chronological order (newest first).

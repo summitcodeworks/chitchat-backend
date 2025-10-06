@@ -61,8 +61,11 @@ public class DeviceToken {
      * 
      * One user can have multiple devices (phone, tablet, web).
      * Used to find all tokens when sending notification to user.
+     * 
+     * Can be null for anonymous device registration (before user login).
+     * Will be updated when user logs in.
      */
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Long userId;
     
     /**

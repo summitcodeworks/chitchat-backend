@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,7 +45,7 @@ public class MessagingController {
             @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
             @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
             @PathVariable Long receiverId,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         Long senderId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
         Page<MessageResponse> response = messagingService.getConversationMessages(senderId, receiverId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -57,7 +58,7 @@ public class MessagingController {
             @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
             @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
             @PathVariable String groupId,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MessageResponse> response = messagingService.getGroupMessages(groupId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -68,7 +69,7 @@ public class MessagingController {
             @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
             @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
             @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
         Page<MessageResponse> response = messagingService.getUserMessages(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));

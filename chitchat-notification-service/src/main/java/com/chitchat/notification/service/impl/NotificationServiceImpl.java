@@ -44,8 +44,8 @@ public class NotificationServiceImpl implements NotificationService {
     public void registerDeviceToken(Long userId, RegisterDeviceTokenRequest request) {
         log.info("Registering device token for user: {}", userId);
         
-        // Check if device token already exists
-        DeviceToken existingToken = deviceTokenRepository.findByUserIdAndDeviceId(userId, request.getDeviceId()).orElse(null);
+        // Check if device token already exists by deviceId (regardless of userId)
+        DeviceToken existingToken = deviceTokenRepository.findByDeviceId(request.getDeviceId()).orElse(null);
         
         if (existingToken != null) {
             // Update existing token
@@ -55,6 +55,10 @@ public class NotificationServiceImpl implements NotificationService {
             existingToken.setOsVersion(request.getOsVersion());
             existingToken.setDeviceModel(request.getDeviceModel());
             existingToken.setIsActive(true);
+            // Update userId if provided
+            if (userId != null) {
+                existingToken.setUserId(userId);
+            }
             deviceTokenRepository.save(existingToken);
         } else {
             // Create new token

@@ -1,9 +1,11 @@
 package com.chitchat.gateway.service;
 
+import com.chitchat.shared.service.ConfigurationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,7 +38,10 @@ import java.util.function.Function;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class JwtService {
+
+    private final ConfigurationService configurationService;
 
     /**
      * Secret key for JWT signing and verification
@@ -44,7 +49,7 @@ public class JwtService {
      * Minimum 256 bits (32 characters) for HS256 algorithm
      */
     @Value("${jwt.secret}")
-    private String secretKey;
+    private String fallbackSecretKey;
 
     /**
      * Token expiration time in seconds
@@ -52,7 +57,7 @@ public class JwtService {
      * Shorter expiration improves security, longer improves user experience
      */
     @Value("${jwt.expiration}")
-    private long expiration;
+    private long fallbackExpiration;
 
     /**
      * Creates the cryptographic signing key from the secret
@@ -63,7 +68,26 @@ public class JwtService {
      * @return SecretKey for HMAC SHA-256 signing
      */
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+        String secret = configurationService.getJwtSecret();
+        if (secret == null) {
+            log.warn("JWT secret not found in configuration, using fallback");
+            secret = fallbackSecretKey;
+        }
+        return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+    
+    /**
+     * Gets the JWT expiration time
+     * 
+     * @return Expiration time in milliseconds
+     */
+    private long getExpiration() {
+        Long expirationSeconds = configurationService.getJwtExpiration();
+        if (expirationSeconds == null) {
+            log.warn("JWT expiration not found in configuration, using fallback");
+            return fallbackExpiration * 1000;
+        }
+        return expirationSeconds * 1000;
     }
 
     /**
@@ -202,8 +226,8 @@ public class JwtService {
                 .setClaims(claims)           // Add custom claims (userId, phoneNumber)
                 .setSubject(subject)         // Set the subject (username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))  // Set issue time to now
-                // Calculate expiration: current time + expiration seconds * 1000 (convert to ms)
-                .setExpiration(new Date(System.currentTimeMillis() + (expiration * 1000)))
+                // Calculate expiration: current time + expiration milliseconds
+                .setExpiration(new Date(System.currentTimeMillis() + getExpiration()))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)  // Sign with HS256
                 .compact();                  // Build and return compact JWT string
     }

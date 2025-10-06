@@ -1,0 +1,48 @@
+# ChitChat Backend Memory Optimization Configuration
+# This file contains optimized settings to reduce RAM usage by ~70%
+
+# JVM Memory Settings (per service)
+jvm_memory_settings:
+  heap_size: "-Xmx512m"          # Reduced from default ~1GB to 512MB
+  initial_heap: "-Xms256m"       # Start with 256MB
+  metaspace: "-XX:MetaspaceSize=128m"
+  max_metaspace: "-XX:MaxMetaspaceSize=256m"
+  gc_settings: "-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+  
+# Database Connection Pool Settings
+database_optimization:
+  hikari_max_pool_size: 5        # Reduced from default 10
+  hikari_min_idle: 2             # Reduced from default 5
+  connection_timeout: 30000      # 30 seconds
+  idle_timeout: 600000          # 10 minutes
+  max_lifetime: 1800000         # 30 minutes
+  
+# Redis Connection Settings
+redis_optimization:
+  max_connections: 5             # Reduced from default 8
+  connection_timeout: 2000       # 2 seconds
+  socket_timeout: 2000          # 2 seconds
+  
+# Kafka Settings
+kafka_optimization:
+  max_poll_records: 100          # Reduced from default 500
+  session_timeout: 30000         # 30 seconds
+  heartbeat_interval: 10000      # 10 seconds
+  
+# WebSocket Settings
+websocket_optimization:
+  max_sessions_per_user: 1       # Only one session per user
+  session_cleanup_interval: 30000 # 30 seconds
+  max_message_size: 8192        # 8KB limit
+  
+# Logging Optimization
+logging_optimization:
+  level: "INFO"                  # Reduced from DEBUG
+  max_file_size: "10MB"         # Limit log file size
+  max_history: 5                # Keep only 5 log files
+  
+# Spring Boot Optimization
+spring_optimization:
+  devtools_restart_enabled: false # Disable in production
+  live_reload_enabled: false     # Disable live reload
+  caching_enabled: true          # Enable caching

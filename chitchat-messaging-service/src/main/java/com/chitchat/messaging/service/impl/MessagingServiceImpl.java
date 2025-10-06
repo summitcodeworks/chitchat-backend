@@ -8,6 +8,9 @@ import com.chitchat.messaging.dto.*;
 import com.chitchat.messaging.repository.GroupRepository;
 import com.chitchat.messaging.repository.MessageRepository;
 import com.chitchat.messaging.service.MessagingService;
+import com.chitchat.messaging.service.WebSocketService;
+import com.chitchat.messaging.event.*;
+import org.springframework.context.ApplicationEventPublisher;
 import com.chitchat.shared.exception.ChitChatException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Implementation of MessagingService
@@ -35,15 +40,21 @@ public class MessagingServiceImpl implements MessagingService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final NotificationServiceClient notificationClient;
     private final UserServiceClient userServiceClient;
+    private final ApplicationEventPublisher eventPublisher;
     
     @Override
     @Transactional
     public MessageResponse sendMessage(Long senderId, SendMessageRequest request) {
-        log.info("Sending message from user {} to {}", senderId, request.getRecipientId());
+        // Handle both recipientId and receiverId field names for backward compatibility
+        Long recipientId = request.getRecipientId() != null ? request.getRecipientId() : request.getReceiverId();
+        
+        log.info("Sending message from user {} to {}", senderId, recipientId);
+        log.info("Request details - recipientId: {}, receiverId: {}, groupId: {}, content: {}", 
+                request.getRecipientId(), request.getReceiverId(), request.getGroupId(), request.getContent());
         
         Message message = Message.builder()
                 .senderId(senderId)
-                .recipientId(request.getRecipientId())
+                .recipientId(recipientId)
                 .groupId(request.getGroupId())
                 .content(request.getContent())
                 .type(request.getType() != null ? request.getType() : Message.MessageType.TEXT)
@@ -63,15 +74,152 @@ public class MessagingServiceImpl implements MessagingService {
         // Send push notification to recipient(s)
         sendPushNotification(message, senderId);
         
+        // Send message via WebSocket for real-time delivery
+        MessageResponse messageResponse = mapToMessageResponse(message);
+        if (recipientId != null) {
+            eventPublisher.publishEvent(new SendMessageEvent(recipientId, messageResponse));
+            log.debug("Message sent to user {} via WebSocket", recipientId);
+            
+            // Send conversation list update to recipient
+            eventPublisher.publishEvent(new SendConversationUpdateEvent(recipientId));
+            
+            // Send unread count update to recipient
+            eventPublisher.publishEvent(new SendUnreadCountUpdateEvent(recipientId));
+        }
+        
+        // Send conversation list update to sender
+        eventPublisher.publishEvent(new SendConversationUpdateEvent(senderId));
+        
         log.info("Message sent successfully with ID: {}", message.getId());
         
-        return mapToMessageResponse(message);
+        return messageResponse;
     }
     
     @Override
     public Page<MessageResponse> getConversationMessages(Long userId1, Long userId2, Pageable pageable) {
         Page<Message> messages = messageRepository.findConversationMessages(userId1, userId2, pageable);
         return messages.map(this::mapToMessageResponse);
+    }
+    
+    @Override
+    public List<ConversationResponse> getConversationList(Long userId) {
+        log.info("Getting conversation list for user: {}", userId);
+        
+        try {
+            // Get latest messages for all conversations
+            List<Message> latestMessages = messageRepository.findLatestMessagesForConversations(userId);
+            
+            // Get unread counts for each conversation partner
+            List<MessageRepository.UnreadCountResult> unreadCounts = messageRepository.findUnreadCountsBySender(userId);
+            Map<Long, Long> unreadCountMap = unreadCounts.stream()
+                    .collect(Collectors.toMap(
+                            MessageRepository.UnreadCountResult::getSenderId,
+                            MessageRepository.UnreadCountResult::getUnreadCount
+                    ));
+            
+            // Convert to conversation responses
+            List<ConversationResponse> conversations = latestMessages.stream()
+                    .map(message -> mapToConversationResponse(message, userId, unreadCountMap))
+                    .collect(Collectors.toList());
+            
+            log.info("Found {} conversations for user {}", conversations.size(), userId);
+            return conversations;
+            
+        } catch (Exception e) {
+            log.error("Error getting conversation list for user: {}", userId, e);
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Maps a latest message to conversation response
+     */
+    private ConversationResponse mapToConversationResponse(Message message, Long currentUserId, Map<Long, Long> unreadCountMap) {
+        // Determine the other user in the conversation
+        Long otherUserId = message.getSenderId().equals(currentUserId) ? 
+                message.getRecipientId() : message.getSenderId();
+        
+        // Get user details (this would typically come from User Service)
+        String userName = getUserName(otherUserId);
+        String userAvatar = getUserAvatar(otherUserId);
+        String userStatus = getUserStatus(otherUserId);
+        
+        // Get unread count for this conversation
+        Long unreadCount = unreadCountMap.getOrDefault(otherUserId, 0L);
+        
+        // Check if user is currently typing (this would come from WebSocket state)
+        Boolean isTyping = false; // Placeholder - would be managed by WebSocket state
+        
+        return ConversationResponse.builder()
+                .userId(otherUserId)
+                .userName(userName)
+                .userAvatar(userAvatar)
+                .userStatus(userStatus)
+                .latestMessageId(message.getId())
+                .latestMessageContent(message.getContent())
+                .latestMessageType(message.getType().name())
+                .latestMessageSenderId(message.getSenderId())
+                .latestMessageSenderName(getUserName(message.getSenderId()))
+                .latestMessageTime(message.getCreatedAt())
+                .latestMessageStatus(message.getStatus().name())
+                .unreadCount(unreadCount.intValue())
+                .isTyping(isTyping)
+                .conversationType("INDIVIDUAL")
+                .build();
+    }
+    
+    /**
+     * Get user name by ID (placeholder - would call User Service)
+     */
+    private String getUserName(Long userId) {
+        try {
+            // This would typically call User Service to get user details
+            // For now, return a placeholder
+            return "User " + userId;
+        } catch (Exception e) {
+            log.warn("Failed to get user name for ID: {}", userId);
+            return "Unknown User";
+        }
+    }
+    
+    /**
+     * Get user avatar by ID (placeholder - would call User Service)
+     */
+    private String getUserAvatar(Long userId) {
+        try {
+            // This would typically call User Service to get user avatar
+            return "/default-avatar.png";
+        } catch (Exception e) {
+            log.warn("Failed to get user avatar for ID: {}", userId);
+            return "/default-avatar.png";
+        }
+    }
+    
+    /**
+     * Get user status by ID (placeholder - would call User Service or WebSocket state)
+     */
+    private String getUserStatus(Long userId) {
+        try {
+            // For now, return OFFLINE - WebSocket status would be managed separately
+            return "OFFLINE";
+        } catch (Exception e) {
+            log.warn("Failed to get user status for ID: {}", userId);
+            return "OFFLINE";
+        }
+    }
+    
+    @Override
+    public long getTotalUnreadCount(Long userId) {
+        log.info("Getting total unread count for user: {}", userId);
+        
+        try {
+            long totalUnreadCount = messageRepository.countTotalUnreadMessages(userId);
+            log.info("User {} has {} total unread messages", userId, totalUnreadCount);
+            return totalUnreadCount;
+        } catch (Exception e) {
+            log.error("Error getting total unread count for user: {}", userId, e);
+            return 0;
+        }
     }
     
     @Override
@@ -118,6 +266,15 @@ public class MessagingServiceImpl implements MessagingService {
         // Publish read receipt event
         publishReadReceiptEvent(message);
         
+        // Send read status update via WebSocket to sender
+        if (message.getSenderId() != null) {
+            eventPublisher.publishEvent(new SendStatusUpdateEvent(message.getSenderId(), message.getId(), "READ"));
+            log.debug("Read status sent to sender {} via WebSocket", message.getSenderId());
+        }
+        
+        // Send unread count update to user who marked as read
+        eventPublisher.publishEvent(new SendUnreadCountUpdateEvent(userId));
+        
         return mapToMessageResponse(message);
     }
     
@@ -130,6 +287,12 @@ public class MessagingServiceImpl implements MessagingService {
         message.setStatus(Message.MessageStatus.DELIVERED);
         message.setDeliveredAt(LocalDateTime.now());
         messageRepository.save(message);
+        
+        // Send delivery status update via WebSocket to sender
+        if (message.getSenderId() != null) {
+            eventPublisher.publishEvent(new SendStatusUpdateEvent(message.getSenderId(), message.getId(), "DELIVERED"));
+            log.debug("Delivery status sent to sender {} via WebSocket", message.getSenderId());
+        }
     }
     
     @Override
@@ -424,6 +587,7 @@ public class MessagingServiceImpl implements MessagingService {
                 .id(message.getId())
                 .senderId(message.getSenderId())
                 .recipientId(message.getRecipientId())
+                .receiverId(message.getRecipientId()) // Set receiverId to same value as recipientId for backward compatibility
                 .groupId(message.getGroupId())
                 .content(message.getContent())
                 .type(message.getType())

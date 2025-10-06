@@ -1,0 +1,50 @@
+server:
+  port: 8761
+  tomcat:
+    threads:
+      max: 50
+      min-spare: 5
+    max-connections: 4096
+    accept-count: 100
+    connection-timeout: 20000
+
+spring:
+  application:
+    name: chitchat-eureka-server
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+eureka:
+  server:
+    eviction-interval-timer-in-ms: 30000
+    response-cache-update-interval-ms: 30000
+    response-cache-auto-expiration-in-seconds: 180
+    enable-self-preservation: true
+    renewal-percent-threshold: 0.85
+    expected-number-of-clients-sending-renews: 10
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    org.springframework.cloud: WARN
