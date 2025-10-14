@@ -38,6 +38,28 @@ public class MessagingController {
         return ResponseEntity.ok(ApiResponse.success(response, "Message sent successfully"));
     }
     
+    @GetMapping("/conversations")
+    public ResponseEntity<ApiResponse<List<ConversationResponse>>> getConversationList(
+            @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
+            @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
+            @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
+            @RequestHeader(value = "X-Token-Type", required = false) String tokenType) {
+        Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
+        List<ConversationResponse> response = messagingService.getConversationList(userId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+    
+    @GetMapping("/unread-count")
+    public ResponseEntity<ApiResponse<Long>> getTotalUnreadCount(
+            @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
+            @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
+            @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
+            @RequestHeader(value = "X-Token-Type", required = false) String tokenType) {
+        Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
+        long unreadCount = messagingService.getTotalUnreadCount(userId);
+        return ResponseEntity.ok(ApiResponse.success(unreadCount, "Total unread count retrieved"));
+    }
+    
     @GetMapping("/conversation/{receiverId}")
     public ResponseEntity<ApiResponse<Page<MessageResponse>>> getConversationMessages(
             @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
@@ -110,6 +132,19 @@ public class MessagingController {
         Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
         messagingService.deleteMessage(messageId, userId, deleteForEveryone);
         return ResponseEntity.ok(ApiResponse.success(null, "Message deleted successfully"));
+    }
+    
+    @PutMapping("/{messageId}/pin")
+    public ResponseEntity<ApiResponse<MessageResponse>> pinMessage(
+            @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
+            @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
+            @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
+            @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
+            @PathVariable String messageId,
+            @RequestParam(defaultValue = "true") boolean isPinned) {
+        Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
+        MessageResponse response = messagingService.pinMessage(messageId, userId, isPinned);
+        return ResponseEntity.ok(ApiResponse.success(response, isPinned ? "Message pinned successfully" : "Message unpinned successfully"));
     }
     
     @PostMapping("/groups")
@@ -196,6 +231,18 @@ public class MessagingController {
         Long userId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
         messagingService.leaveGroup(groupId, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Left group successfully"));
+    }
+    
+    @PutMapping("/conversation/{senderId}/mark-all-read")
+    public ResponseEntity<ApiResponse<Integer>> markAllMessagesAsRead(
+            @RequestHeader(value = "X-User-ID", required = false) String userIdHeader,
+            @RequestHeader(value = "X-User-UID", required = false) String firebaseUidHeader,
+            @RequestHeader(value = "X-User-Phone", required = false) String phoneNumberHeader,
+            @RequestHeader(value = "X-Token-Type", required = false) String tokenType,
+            @PathVariable Long senderId) {
+        Long recipientId = extractUserIdFromHeaders(userIdHeader, firebaseUidHeader, phoneNumberHeader, tokenType);
+        int count = messagingService.markAllMessagesAsReadFromSender(recipientId, senderId);
+        return ResponseEntity.ok(ApiResponse.success(count, count + " messages marked as read"));
     }
     
     private Long extractUserIdFromHeaders(String userIdHeader, String firebaseUidHeader, String phoneNumberHeader, String tokenType) {

@@ -3,6 +3,7 @@ package com.chitchat.shared.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -54,6 +55,7 @@ import java.util.UUID;
  */
 @Slf4j
 @RestControllerAdvice
+@ConditionalOnClass(name = "org.springframework.web.servlet.DispatcherServlet")
 public class GlobalExceptionHandler {
 
     /**

@@ -143,7 +143,7 @@ public interface MessageRepository extends MongoRepository<Message, String> {
     List<Message> findUnreadMessagesForSender(Long senderId);
     
     /**
-     * Finds delivered but not yet read messages for a recipient
+     * Finds unread messages for a recipient (SENT or DELIVERED, not READ)
      * 
      * Used for:
      * - Unread message count
@@ -151,9 +151,9 @@ public interface MessageRepository extends MongoRepository<Message, String> {
      * - Notification badge count
      * 
      * @param recipientId User ID of message recipient
-     * @return List of delivered messages waiting to be read
+     * @return List of unread messages (SENT or DELIVERED status)
      */
-    @Query("{ recipientId: ?0, status: 'DELIVERED' }")
+    @Query("{ recipientId: ?0, status: { $in: ['SENT', 'DELIVERED'] } }")
     List<Message> findDeliveredMessagesForRecipient(Long recipientId);
     
     /**
@@ -223,14 +223,16 @@ public interface MessageRepository extends MongoRepository<Message, String> {
      * Used for showing unread badges in conversation list.
      * 
      * MongoDB Aggregation Pipeline:
-     * 1. Match messages where user is recipient and status is DELIVERED (unread)
+     * 1. Match messages where user is recipient and status is SENT or DELIVERED (unread)
      * 2. Group by sender ID to count unread messages per sender
+     * 
+     * Note: Both SENT and DELIVERED count as unread (not READ yet)
      * 
      * @param userId User ID to count unread messages for
      * @return List of unread counts per conversation partner
      */
     @Aggregation(pipeline = {
-        "{ $match: { recipientId: ?0, status: 'DELIVERED' } }",
+        "{ $match: { recipientId: ?0, status: { $in: ['SENT', 'DELIVERED'] } } }",
         "{ $group: { _id: '$senderId', unreadCount: { $sum: 1 } } }"
     })
     List<UnreadCountResult> findUnreadCountsBySender(Long userId);
@@ -243,13 +245,81 @@ public interface MessageRepository extends MongoRepository<Message, String> {
      * 
      * MongoDB Query:
      * - recipientId: User ID (messages sent TO this user)
-     * - status: 'DELIVERED' (messages that are delivered but not read yet)
+     * - status: SENT or DELIVERED (messages that are not read yet)
+     * 
+     * Note: Both SENT and DELIVERED count as unread (not READ yet)
      * 
      * @param userId User ID to count total unread messages for
      * @return Total count of unread messages
      */
-    @Query(value = "{ recipientId: ?0, status: 'DELIVERED' }", count = true)
+    @Query(value = "{ recipientId: ?0, status: { $in: ['SENT', 'DELIVERED'] } }", count = true)
     long countTotalUnreadMessages(Long userId);
+    
+    /**
+     * Finds pinned messages in a one-on-one conversation
+     * 
+     * Used for:
+     * - Finding existing pinned messages to unpin before pinning a new one
+     * - Ensuring only one message per conversation can be pinned
+     * 
+     * @param senderId First user ID in the conversation
+     * @param recipientId Second user ID in the conversation
+     * @return List of pinned messages in the conversation
+     */
+    @Query("{ $or: [ { senderId: ?0, recipientId: ?1 }, { senderId: ?1, recipientId: ?0 } ], isPinned: true }")
+    List<Message> findBySenderIdAndRecipientIdAndIsPinnedTrue(Long senderId, Long recipientId);
+    
+    /**
+     * Finds pinned messages in a group conversation
+     * 
+     * Used for:
+     * - Finding existing pinned messages to unpin before pinning a new one
+     * - Ensuring only one message per group can be pinned
+     * 
+     * @param senderId User ID who sent the message
+     * @param groupId Group ID for the conversation
+     * @return List of pinned messages in the group
+     */
+    @Query("{ senderId: ?0, groupId: ?1, isPinned: true }")
+    List<Message> findBySenderIdAndGroupIdAndIsPinnedTrue(Long senderId, String groupId);
+    
+    /**
+     * Finds messages by IDs in bulk
+     * 
+     * Used for batch operations when updating multiple messages at once.
+     * More efficient than calling findById multiple times.
+     * 
+     * @param messageIds List of message IDs to retrieve
+     * @return List of messages matching the IDs
+     */
+    @Query("{ _id: { $in: ?0 } }")
+    List<Message> findByIdIn(List<String> messageIds);
+    
+    /**
+     * Bulk update message status
+     * 
+     * Updates status for multiple messages to READ in a single operation.
+     * Used when marking all messages in a conversation as read.
+     * 
+     * @param recipientId User ID marking messages as read
+     * @param senderId User ID who sent the messages
+     * @return Number of messages updated
+     */
+    @Query(value = "{ recipientId: ?0, senderId: ?1, status: { $in: ['SENT', 'DELIVERED'] } }", delete = false, count = false)
+    List<Message> findUnreadMessagesFromSender(Long recipientId, Long senderId);
+    
+    /**
+     * Finds all messages in SENT status for a specific recipient
+     * 
+     * Used when user comes online to deliver pending messages.
+     * Returns only messages in SENT status (not DELIVERED or READ).
+     * These are messages that were sent while the user was offline.
+     * 
+     * @param recipientId User ID to find pending messages for
+     * @return List of messages in SENT status
+     */
+    @Query("{ recipientId: ?0, status: 'SENT' }")
+    List<Message> findPendingMessagesForRecipient(Long recipientId);
     
     /**
      * Result class for unread count aggregation

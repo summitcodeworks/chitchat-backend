@@ -3,6 +3,7 @@ package com.chitchat.notification;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -53,10 +54,12 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Key Annotations:
  * @EnableFeignClients - Enable REST clients for calling user-service
  * @EnableAsync - Enable async processing for notification sending
+ * @ComponentScan - Scan shared components from chitchat-shared package
  */
 @SpringBootApplication
 @EnableFeignClients  // Enable Feign clients (e.g., UserServiceClient to get device tokens)
 @EnableAsync  // Enable async methods for non-blocking notification delivery
+@ComponentScan(basePackages = {"com.chitchat.notification", "com.chitchat.shared"})  // Scan shared components
 public class ChitChatNotificationServiceApplication {
 
     /**

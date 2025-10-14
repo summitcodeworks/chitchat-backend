@@ -1,5 +1,12 @@
 server:
   port: 9106
+  tomcat:
+    threads:
+      max: 50                    # Reduced for lower memory
+      min-spare: 5
+    max-connections: 4096
+    accept-count: 100
+    connection-timeout: 20000
 
 spring:
   application:
@@ -13,22 +20,22 @@ spring:
     password: 8ivhaah8
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 2      # Reduced for low-resource system
-      minimum-idle: 1           # Minimal idle connections
-      connection-timeout: 30000 # 30 seconds
-      idle-timeout: 300000      # 5 minutes
-      max-lifetime: 900000      # 15 minutes
+      maximum-pool-size: 2       # Reduced for low-resource system
+      minimum-idle: 1            # Minimal idle connections
+      connection-timeout: 30000  # 30 seconds
+      idle-timeout: 300000       # 5 minutes
+      max-lifetime: 900000       # 15 minutes
       leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false             # Disabled to reduce memory and overhead
+    show-sql: false              # Disabled to reduce memory and overhead
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false       # Disabled to reduce overhead
+        format_sql: false        # Disabled to reduce overhead
         jdbc:
-          batch_size: 20        # Optimize batch processing
+          batch_size: 20         # Optimize batch processing
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -41,8 +48,13 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 30
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
 
 firebase:
   project-id: chitchat-9c074
@@ -65,9 +77,10 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
 
 logging:
   level:
-    com.chitchat.notification: DEBUG
-    org.springframework.web: DEBUG
+    com.chitchat.notification: INFO     # Reduced from DEBUG for production
+    org.springframework.web: WARN
+

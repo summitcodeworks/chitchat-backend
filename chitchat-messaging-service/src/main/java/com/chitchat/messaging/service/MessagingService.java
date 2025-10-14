@@ -171,6 +171,20 @@ public interface MessagingService {
     void deleteMessage(String messageId, Long userId, boolean deleteForEveryone);
     
     /**
+     * Pins or unpins a message in the conversation
+     * 
+     * Only one message per conversation can be pinned at a time.
+     * When a new message is pinned, the previously pinned message is automatically unpinned.
+     * 
+     * @param messageId Message identifier
+     * @param userId ID of user pinning/unpinning the message
+     * @param isPinned true to pin, false to unpin
+     * @return Updated MessageResponse
+     * @throws ChitChatException if message not found or user not authorized
+     */
+    MessageResponse pinMessage(String messageId, Long userId, boolean isPinned);
+    
+    /**
      * Creates a new group chat
      * 
      * Creator becomes group admin by default.
@@ -249,4 +263,33 @@ public interface MessagingService {
      * @throws ChitChatException if user not in group
      */
     void leaveGroup(String groupId, Long userId);
+    
+    /**
+     * Marks all messages in a conversation as read in bulk
+     * 
+     * Optimized operation to mark multiple messages as read in a single transaction.
+     * Much faster than marking messages one by one.
+     * 
+     * @param recipientId User ID marking messages as read
+     * @param senderId User ID who sent the messages
+     * @return Number of messages marked as read
+     */
+    int markAllMessagesAsReadFromSender(Long recipientId, Long senderId);
+    
+    /**
+     * Gets pending messages for a user (messages in SENT status)
+     * 
+     * When a user comes online, this method retrieves all messages that are in SENT status.
+     * These are messages that were sent while the user was offline or not in the chat screen.
+     * After retrieving, these messages will be sent via WebSocket and marked as DELIVERED.
+     * 
+     * Only returns messages in SENT status:
+     * - Not DELIVERED (already delivered)
+     * - Not READ (already read)
+     * - Only SENT (pending delivery)
+     * 
+     * @param recipientId User ID to get pending messages for
+     * @return List of pending messages
+     */
+    List<MessageResponse> getPendingMessages(Long recipientId);
 }

@@ -1,7 +1,7 @@
 package com.chitchat.messaging.event;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
+@EqualsAndHashCode(callSuper=false)
 public class SendStatusUpdateEvent extends WebSocketEvent {
     private Long senderId;
     private String messageId;

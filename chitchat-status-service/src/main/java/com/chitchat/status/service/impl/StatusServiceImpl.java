@@ -2,13 +2,14 @@ package com.chitchat.status.service.impl;
 
 import com.chitchat.status.document.Status;
 import com.chitchat.status.dto.*;
+import com.chitchat.status.event.StatusEvent;
 import com.chitchat.status.repository.StatusRepository;
 import com.chitchat.status.service.StatusService;
 import com.chitchat.shared.exception.ChitChatException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,6 +30,7 @@ public class StatusServiceImpl implements StatusService {
     
     private final StatusRepository statusRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
     
     @Override
     @Transactional
@@ -324,8 +326,21 @@ public class StatusServiceImpl implements StatusService {
     }
     
     private void publishStatusEvent(Status status, String eventType) {
-        // Publish status event to Kafka for real-time updates
-        kafkaTemplate.send("status-events", eventType, status);
+        try {
+            // Create event DTO
+            StatusEvent event = StatusEvent.fromStatus(status, eventType);
+            
+            // Serialize to JSON
+            String eventJson = objectMapper.writeValueAsString(event);
+            
+            // Publish status event to Kafka for real-time updates
+            kafkaTemplate.send("status-events", status.getId(), eventJson);
+            
+            log.debug("Published status event: {} for status: {}", eventType, status.getId());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize status event: {}", e.getMessage(), e);
+            // Don't throw exception - we don't want to fail the main operation if event publishing fails
+        }
     }
     
     private StatusResponse mapToStatusResponse(Status status) {

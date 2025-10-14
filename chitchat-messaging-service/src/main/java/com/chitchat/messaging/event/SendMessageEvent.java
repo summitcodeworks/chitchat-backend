@@ -1,8 +1,8 @@
 package com.chitchat.messaging.event;
 
 import com.chitchat.messaging.dto.MessageResponse;
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
+@EqualsAndHashCode(callSuper=false)
 public class SendMessageEvent extends WebSocketEvent {
     private Long receiverId;
     private MessageResponse message;

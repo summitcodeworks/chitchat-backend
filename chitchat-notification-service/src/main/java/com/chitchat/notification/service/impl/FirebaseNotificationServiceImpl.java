@@ -61,13 +61,29 @@ public class FirebaseNotificationServiceImpl implements FirebaseNotificationServ
             Message.Builder messageBuilder = Message.builder()
                     .setNotification(notificationBuilder.build());
 
-            // Add data payload
+            // Add basic data payload
             messageBuilder.putData("type", notification.getType().toString());
-            messageBuilder.putData("actionUrl", notification.getActionUrl() != null ? notification.getActionUrl() : "");
             messageBuilder.putData("notificationId", notification.getId().toString());
 
+            // Parse and add custom data fields individually (required for mobile app)
             if (notification.getData() != null && !notification.getData().trim().isEmpty()) {
-                messageBuilder.putData("customData", notification.getData());
+                try {
+                    // Parse JSON string to extract individual fields
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    Map<String, Object> dataMap = mapper.readValue(notification.getData(), Map.class);
+                    
+                    // Add each data field individually to FCM message
+                    for (Map.Entry<String, Object> entry : dataMap.entrySet()) {
+                        String key = entry.getKey();
+                        String value = entry.getValue() != null ? entry.getValue().toString() : "";
+                        messageBuilder.putData(key, value);
+                        log.debug("Added data field: {} = {}", key, value);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse notification data JSON: {}", notification.getData(), e);
+                    // Fallback: add as single field
+                    messageBuilder.putData("customData", notification.getData());
+                }
             }
 
             // Send to each device token

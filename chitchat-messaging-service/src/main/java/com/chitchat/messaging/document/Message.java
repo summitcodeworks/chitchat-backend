@@ -242,6 +242,21 @@ public class Message {
     private LocalDateTime updatedAt;
     
     /**
+     * Whether this message is pinned in the conversation
+     * 
+     * Pinned messages appear at the top of the chat for easy access.
+     * Only one message per conversation can be pinned at a time.
+     * When a new message is pinned, the previously pinned message is automatically unpinned.
+     * 
+     * Default: false
+     * Used for:
+     * - Displaying pinned message indicator
+     * - Showing pinned messages at top of chat
+     * - Managing pinned message state
+     */
+    private Boolean isPinned;
+    
+    /**
      * Enum defining types of messages supported
      * 
      * Each type has different rendering and handling in the UI:

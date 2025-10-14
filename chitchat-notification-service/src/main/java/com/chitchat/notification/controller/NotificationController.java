@@ -3,6 +3,7 @@ package com.chitchat.notification.controller;
 import com.chitchat.notification.dto.*;
 import com.chitchat.notification.service.NotificationService;
 import com.chitchat.shared.dto.ApiResponse;
+import com.chitchat.shared.util.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.util.List;
 public class NotificationController {
     
     private final NotificationService notificationService;
+    private final JwtUtil jwtUtil;
     
     @PostMapping("/device-token")
     public ResponseEntity<ApiResponse<Void>> registerDeviceToken(
@@ -122,10 +124,30 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(null, "All notifications marked as read"));
     }
     
-    private Long extractUserIdFromToken(String token) {
-        // Extract user ID from JWT token
-        // This is a simplified implementation
-        // In a real application, you would use a proper JWT service
-        return 1L; // Placeholder
+    /**
+     * Extract user ID from Authorization header
+     * Handles both regular JWT tokens and system tokens from internal services
+     * 
+     * @param authHeader Authorization header value
+     * @return User ID from the token
+     */
+    private Long extractUserIdFromToken(String authHeader) {
+        // Handle system token from messaging service (for internal service-to-service calls)
+        if (jwtUtil.isSystemToken(authHeader)) {
+            log.debug("System token received from internal service");
+            // For system tokens, the user ID should come from the request body, not the token
+            // This is only used for internal service calls where auth is bypassed
+            return null; // Caller must handle null and use userId from request body
+        }
+        
+        try {
+            // Extract user ID from JWT token
+            Long userId = jwtUtil.extractUserIdFromHeader(authHeader);
+            log.debug("Extracted user ID {} from token", userId);
+            return userId;
+        } catch (Exception e) {
+            log.error("Failed to extract user ID from token: {}", e.getMessage());
+            throw new RuntimeException("Invalid or expired authentication token");
+        }
     }
 }
