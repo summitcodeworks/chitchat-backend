@@ -1,0 +1,366 @@
+Yes. Add hover table on the employee icon area.
+
+Header will be:
+
+APP_DEPT | EMP_COUNT | MANPOWER
+
+Since your current file already has employee icon containers like data-role="emp", we can bind hover directly on that node. 
+
+1. Add this CSS inside <style>
+
+Add near your .emp-plus CSS:
+
+.emp-tooltip-popup {
+    position: absolute;
+    display: none;
+    z-index: 9999;
+    min-width: 220px;
+    padding: 8px;
+    background: #ffffff;
+    border: 1px solid #7f97ad;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #111111;
+    pointer-events: none;
+}
+
+.emp-tooltip-popup table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.emp-tooltip-popup th,
+.emp-tooltip-popup td {
+    border: 1px solid #c7d5e2;
+    padding: 5px 7px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.emp-tooltip-popup th {
+    background: #edf6ff;
+    color: #153b57;
+    font-weight: bold;
+}
+
+2. Replace APP_DEPT_COUNTS with APP_DEPT_MAP
+
+In your collectDashboardData(), use this object:
+
+APP_DEPT_MAP: {}
+
+So this part should become:
+
+summary.lineMap[recordKey] = {
+    PROD_TYPE: productKey,
+    DEPT: deptKey,              // existing logic
+    LINE: String(record.LINE || ''),
+    EMP_COUNT: 0,
+    MANPOWER: 0,
+    APP_DEPT_MAP: {}            // only for icon color and hover table
+};
+
+Then replace your count adding part with this:
+
+item = summary.lineMap[recordKey];
+
+if (!item.APP_DEPT_MAP[appDeptKey]) {
+    item.APP_DEPT_MAP[appDeptKey] = {
+        APP_DEPT: appDeptKey,
+        EMP_COUNT: 0,
+        MANPOWER: 0
+    };
+}
+
+if (!isNaN(empCount)) {
+    item.EMP_COUNT += empCount;
+    item.APP_DEPT_MAP[appDeptKey].EMP_COUNT += empCount;
+}
+
+item.MANPOWER += manpower;
+item.APP_DEPT_MAP[appDeptKey].MANPOWER += manpower;
+
+3. Replace renderEmpCountByAppDept() with this
+
+function renderEmpCountByAppDept(item) {
+    var totalCount = parseInt(item.EMP_COUNT, 10);
+    var map = item.APP_DEPT_MAP || {};
+    var deptOrder = ['CP/OLB', 'LAMI', 'ASSEMBLY', 'MANU', 'MANUFACTURING', 'QA'];
+    var usedDept = {};
+    var html = '';
+    var visible = 0;
+    var i;
+    var dept;
+
+    if (isNaN(totalCount) || totalCount <= 0) {
+        return '&nbsp;';
+    }
+
+    function appendDeptIcons(deptName) {
+        var row = map[deptName];
+        var count;
+        var j;
+        var deptClass;
+
+        if (!row) {
+            return;
+        }
+
+        count = parseInt(row.EMP_COUNT, 10);
+
+        if (isNaN(count) || count <= 0) {
+            return;
+        }
+
+        deptClass = getDeptColorClass(deptName);
+
+        for (j = 0; j < count; j++) {
+            if (visible >= MAX_VISIBLE_EMP_ICONS) {
+                return;
+            }
+
+            html += '<span class="emp-icon ' + deptClass + '"></span>';
+            visible++;
+        }
+    }
+
+    for (i = 0; i < deptOrder.length; i++) {
+        dept = deptOrder[i];
+        usedDept[dept] = true;
+        appendDeptIcons(dept);
+    }
+
+    for (dept in map) {
+        if (map.hasOwnProperty(dept) && !usedDept[dept]) {
+            appendDeptIcons(dept);
+        }
+    }
+
+    if (totalCount > MAX_VISIBLE_EMP_ICONS) {
+        html += '<span class="emp-plus">+' + (totalCount - MAX_VISIBLE_EMP_ICONS) + '</span>';
+    }
+
+    return html;
+}
+
+4. Add these tooltip functions below renderEmpCountByAppDept()
+
+var empTooltipNode = null;
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getEmpTooltipNode() {
+    if (!empTooltipNode) {
+        empTooltipNode = document.createElement('div');
+        empTooltipNode.className = 'emp-tooltip-popup';
+        document.body.appendChild(empTooltipNode);
+    }
+
+    return empTooltipNode;
+}
+
+function buildEmpTooltipTable(item) {
+    var map = item.APP_DEPT_MAP || {};
+    var deptOrder = ['CP/OLB', 'LAMI', 'ASSEMBLY', 'MANU', 'MANUFACTURING', 'QA'];
+    var usedDept = {};
+    var rows = [];
+    var html = '';
+    var i;
+    var dept;
+
+    function addRow(deptName) {
+        var row = map[deptName];
+
+        if (!row) {
+            return;
+        }
+
+        if (toNumber(row.EMP_COUNT) <= 0 && toNumber(row.MANPOWER) <= 0) {
+            return;
+        }
+
+        rows.push({
+            APP_DEPT: row.APP_DEPT,
+            EMP_COUNT: row.EMP_COUNT,
+            MANPOWER: row.MANPOWER
+        });
+    }
+
+    for (i = 0; i < deptOrder.length; i++) {
+        dept = deptOrder[i];
+        usedDept[dept] = true;
+        addRow(dept);
+    }
+
+    for (dept in map) {
+        if (map.hasOwnProperty(dept) && !usedDept[dept]) {
+            addRow(dept);
+        }
+    }
+
+    if (rows.length === 0) {
+        return '';
+    }
+
+    html += '<table>';
+    html += '<thead>';
+    html += '<tr>';
+    html += '<th>APP_DEPT</th>';
+    html += '<th>EMP_COUNT</th>';
+    html += '<th>MANPOWER</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+
+    for (i = 0; i < rows.length; i++) {
+        html += '<tr>';
+        html += '<td>' + escapeHtml(rows[i].APP_DEPT) + '</td>';
+        html += '<td>' + formatNumber(rows[i].EMP_COUNT) + '</td>';
+        html += '<td>' + formatNumber(rows[i].MANPOWER) + '</td>';
+        html += '</tr>';
+    }
+
+    html += '</tbody>';
+    html += '</table>';
+
+    return html;
+}
+
+function positionEmpTooltip(event, tooltipNode) {
+    var left = event.pageX + 12;
+    var top = event.pageY + 12;
+    var rect;
+    var windowWidth = window.innerWidth || document.documentElement.clientWidth;
+    var windowHeight = window.innerHeight || document.documentElement.clientHeight;
+    var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+    var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+    tooltipNode.style.left = left + 'px';
+    tooltipNode.style.top = top + 'px';
+
+    rect = tooltipNode.getBoundingClientRect();
+
+    if (rect.right > windowWidth) {
+        left = event.pageX - rect.width - 12;
+    }
+
+    if (rect.bottom > windowHeight) {
+        top = event.pageY - rect.height - 12;
+    }
+
+    if (left < scrollLeft) {
+        left = scrollLeft + 8;
+    }
+
+    if (top < scrollTop) {
+        top = scrollTop + 8;
+    }
+
+    tooltipNode.style.left = left + 'px';
+    tooltipNode.style.top = top + 'px';
+}
+
+function bindEmpTooltip(empNode, item) {
+    var tooltipHtml = buildEmpTooltipTable(item);
+
+    empNode.onmouseenter = null;
+    empNode.onmousemove = null;
+    empNode.onmouseleave = null;
+
+    if (!tooltipHtml) {
+        return;
+    }
+
+    empNode.onmouseenter = function (event) {
+        var tooltipNode = getEmpTooltipNode();
+
+        tooltipNode.innerHTML = tooltipHtml;
+        tooltipNode.style.display = 'block';
+        positionEmpTooltip(event, tooltipNode);
+    };
+
+    empNode.onmousemove = function (event) {
+        var tooltipNode = getEmpTooltipNode();
+
+        if (tooltipNode.style.display === 'block') {
+            positionEmpTooltip(event, tooltipNode);
+        }
+    };
+
+    empNode.onmouseleave = function () {
+        var tooltipNode = getEmpTooltipNode();
+        tooltipNode.style.display = 'none';
+    };
+}
+
+function clearEmpTooltip(empNode) {
+    if (!empNode) {
+        return;
+    }
+
+    empNode.onmouseenter = null;
+    empNode.onmousemove = null;
+    empNode.onmouseleave = null;
+}
+
+5. Update bindLineCardNode()
+
+Replace this:
+
+empNode.innerHTML = renderEmpCountByAppDept(item);
+
+with this:
+
+empNode.innerHTML = renderEmpCountByAppDept(item);
+bindEmpTooltip(empNode, item);
+
+Full employee part:
+
+if (empNode) {
+    empNode.innerHTML = renderEmpCountByAppDept(item);
+    bindEmpTooltip(empNode, item);
+}
+
+6. Update resetLineCardNode()
+
+Inside resetLineCardNode(card), after this:
+
+setBlankHtml(empNode);
+
+add:
+
+clearEmpTooltip(empNode);
+
+So it becomes:
+
+if (empNode) {
+    setBlankHtml(empNode);
+    clearEmpTooltip(empNode);
+}
+
+Example result
+
+For this data:
+
+{
+    "PROD_TYPE": "RIGID",
+    "LINE": "IOC",
+    "DEPT": "CP/OLB",
+    "APP_DEPT": "LAMI",
+    "EMP_COUNT": 1,
+    "MANPOWER": 0.5
+}
+
+It will still show under CP/OLB, but on employee icon hover the table will show:
+
+APP_DEPT   EMP_COUNT   MANPOWER
+LAMI       1           0.5
